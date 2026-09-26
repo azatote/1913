@@ -156,8 +156,20 @@ export function drawCard(state: GameState, pileId: string): ActionResult {
 
   card.faceUp = true
   const pile = addPile(state, [card], { x: source.x + DRAW_OFFSET.x, y: source.y + DRAW_OFFSET.y })
-  if (source.cards.length === 0) removePile(state, source.id)
-  return { ok: true, message: `Carte ${card.code} piochée.`, selectedPileId: pile.id }
+  // Fans successive draws out instead of stacking them exactly on the same spot.
+  while (
+    pile.x + PLAY_STEP_X <= BOARD_WIDTH - CARD_WIDTH
+    && state.piles.some((other) => other.id !== pile.id && other.y === pile.y && Math.abs(other.x - pile.x) < PLAY_STEP_X / 2)
+  ) {
+    pile.x += PLAY_STEP_X
+  }
+  if (source.cards.length === 0) {
+    removePile(state, source.id)
+    return { ok: true, message: `Carte ${card.code} piochée : le talon est vide.`, selectedPileId: pile.id }
+  }
+  // The draw pile stays selected so D can be pressed repeatedly.
+  const remaining = source.cards.length
+  return { ok: true, message: `Carte ${card.code} piochée (${formatCardCount(remaining)} restante${remaining > 1 ? 's' : ''}).`, selectedPileId: source.id }
 }
 
 export function flipTopCard(state: GameState, pileId: string | null): ActionResult {

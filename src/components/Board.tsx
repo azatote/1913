@@ -30,6 +30,7 @@ import type { GameState, Pile, PlayerId, Point } from '../game/types'
 import { isHandCardDrag, readHandCardIndex } from './dnd'
 
 const DRAG_THRESHOLD_PX = 6
+const DOUBLE_TAP_MS = 350
 const MIN_ZOOM = 1
 const MAX_ZOOM = 4
 const ZOOM_STEP = 1.25
@@ -44,7 +45,7 @@ type BoardProps = {
   remoteDrags: Record<string, Point>
   canPlayFromHand: boolean
   onSelect: (pileId: string) => void
-  onPileClick: (pileId: string) => void
+  onPileActivate: (pileId: string) => void
   onPileDrop: (pileId: string, position: Point) => void
   onPileToHand: (pileId: string, playerId: PlayerId) => void
   onPlayFromHand: (index: number, position: Point) => void
@@ -157,7 +158,7 @@ export function Board({
   remoteDrags,
   canPlayFromHand,
   onSelect,
-  onPileClick,
+  onPileActivate,
   onPileDrop,
   onPileToHand,
   onPlayFromHand,
@@ -167,6 +168,7 @@ export function Board({
   const scrollerRef = useRef<HTMLDivElement>(null)
   const boardRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<DragSession | null>(null)
+  const lastTapRef = useRef<{ pileId: string; time: number } | null>(null)
   const zoomRef = useRef(1)
   const anchorRef = useRef<ZoomAnchor | null>(null)
   const pointersRef = useRef(new Map<number, Point>())
@@ -175,9 +177,9 @@ export function Board({
   const [dragPreview, setDragPreview] = useState<{ pileId: string; position: Point } | null>(null)
 
   // Lets the memoized pile handlers read the latest props without being recreated.
-  const latestRef = useRef({ state, mirrored, onSelect, onPileClick, onPileDrop, onPileToHand, onDragMove, onDragEnd })
+  const latestRef = useRef({ state, mirrored, onSelect, onPileActivate, onPileDrop, onPileToHand, onDragMove, onDragEnd })
   useLayoutEffect(() => {
-    latestRef.current = { state, mirrored, onSelect, onPileClick, onPileDrop, onPileToHand, onDragMove, onDragEnd }
+    latestRef.current = { state, mirrored, onSelect, onPileActivate, onPileDrop, onPileToHand, onDragMove, onDragEnd }
   })
 
   const pointerToView = useCallback((clientX: number, clientY: number): Point => {
@@ -297,13 +299,22 @@ export function Board({
     if (!drag || drag.pointerId !== event.pointerId) return
     dragRef.current = null
     setDragPreview(null)
-    const { onPileClick: click, onDragEnd: end, onPileToHand: toHand, onPileDrop: drop } = latestRef.current
+    const { onPileActivate: activate, onDragEnd: end, onPileToHand: toHand, onPileDrop: drop } = latestRef.current
 
+    // A simple click only selects (done on pointer down); a double click/tap draws or flips.
     if (!drag.moved) {
-      if (!cancelled) click(drag.pileId)
+      if (cancelled) return
+      const lastTap = lastTapRef.current
+      if (lastTap && lastTap.pileId === drag.pileId && event.timeStamp - lastTap.time < DOUBLE_TAP_MS) {
+        lastTapRef.current = null
+        activate(drag.pileId)
+      } else {
+        lastTapRef.current = { pileId: drag.pileId, time: event.timeStamp }
+      }
       return
     }
 
+    lastTapRef.current = null
     end(drag.pileId)
     if (cancelled) return
     const handPlayer = handPlayerAt(event.clientX, event.clientY)

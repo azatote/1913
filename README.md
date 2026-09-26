@@ -70,11 +70,14 @@ src/components/          Accueil, table, mains, choix du joueur, invitation, ape
 
 | Touche | Action |
 | --- | --- |
-| Clic sur une pioche | Piocher 1 carte |
-| Clic sur une carte visible | La retourner |
+| Clic sur un paquet | Le sélectionner (pour mélanger, envoyer en main, `D`, `F`…) |
+| Double-clic sur une pioche | Piocher 1 carte |
+| Double-clic sur une carte visible | La retourner |
 | Glisser-déposer | Déplacer, ou fusionner sur un autre paquet |
 | Double-clic sur une carte en main | La jouer |
 | `D` / `F` | Piocher / retourner le paquet sélectionné |
+| Molette, pincement, `+` / `−` / `0` | Zoomer, dézoomer, ajuster |
+| Glisser le fond de la table | Déplacer la vue |
 | `Espace` / `Échap` | Agrandir / fermer l'aperçu |
 
 ## Points d'attention

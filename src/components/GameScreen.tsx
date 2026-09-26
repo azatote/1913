@@ -5,6 +5,7 @@ import {
   drawCard,
   findPile,
   flipTopCard,
+  formatCardCount,
   getTopCard,
   isPileFaceUp,
   isPlayerId,
@@ -63,7 +64,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
   const seatKey = `nd1913.seat.${gameId}`
   const [claim, setClaim] = useState<SeatClaim | null>(() => loadSeatClaim(seatKey))
   const [openedAt] = useState(() => Date.now())
-  const [message, setMessage] = useState('Cliquez sur la pioche pour tirer une carte.')
+  const [message, setMessage] = useState('Double-cliquez sur la pioche pour tirer une carte.')
 
   const {
     state,
@@ -135,11 +136,17 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
 
   const flipSelected = () => run((draft) => flipTopCard(draft, selectedPileId))
 
-  const handlePileClick = (pileId: string) => {
+  const handlePileActivate = (pileId: string) => {
     const pile = state && findPile(state, pileId)
     if (!pile) return
     const faceUp = isPileFaceUp(pile)
     run((draft) => faceUp ? flipTopCard(draft, pileId) : drawCard(draft, pileId))
+  }
+
+  const selectPile = (pileId: string) => {
+    setSelectedPileId(pileId)
+    const pile = state && findPile(state, pileId)
+    if (pile) setMessage(`Paquet sélectionné : ${formatCardCount(pile.cards.length)}.`)
   }
 
   const playCard = (index: number, position?: Point) => {
@@ -292,8 +299,9 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
 
           <section className="panel legend">
             <h2 className="panel-title">Aide</h2>
-            <p>Clic sur une pioche : piocher 1 carte</p>
-            <p>Clic sur une carte visible : la retourner</p>
+            <p>Clic sur un paquet : le sélectionner</p>
+            <p>Double-clic sur une pioche : piocher 1 carte</p>
+            <p>Double-clic sur une carte visible : la retourner</p>
             <p>Glisser-déposer : déplacer, ou fusionner sur un autre paquet</p>
             <p>Main : double-clic ou glisser sur la table pour jouer</p>
             <p>Molette, pincement ou <kbd>+</kbd> <kbd>−</kbd> : zoom · <kbd>0</kbd> : ajuster</p>
@@ -325,8 +333,8 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
             selectedPileId={selectedPileId}
             remoteDrags={remoteDrags}
             canPlayFromHand={Boolean(seat)}
-            onSelect={setSelectedPileId}
-            onPileClick={handlePileClick}
+            onSelect={selectPile}
+            onPileActivate={handlePileActivate}
             onPileDrop={(pileId, position) => run((draft) => movePile(draft, pileId, position))}
             onPileToHand={(pileId, playerId) => run((draft) => movePileToHand(draft, pileId, playerId))}
             onPlayFromHand={playCard}
