@@ -1,18 +1,19 @@
 const http = require("http");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { URL } = require("url");
 
+const IS_VERCEL = Boolean(process.env.VERCEL);
 const HOST = process.env.HOST || "0.0.0.0";
 const PORT = Number(process.env.PORT || 8765);
 const PLAYER_TIMEOUT_MS = 15000;
 const HEARTBEAT_GRACE_MS = 5000;
 const PERSIST_DELAY_MS = 1000;
-const STORE_FILE_PATH = path.join(__dirname, "session-store.json");
+// Vercel's filesystem is read-only except the temp directory.
+const STORE_FILE_PATH = path.join(IS_VERCEL ? os.tmpdir() : __dirname, "session-store.json");
 const STORE_TEMP_FILE_PATH = `${STORE_FILE_PATH}.tmp`;
-const STATIC_ROOT = __dirname;
-const PUBLIC_FILES = new Set(["index.html", "app.js", "styles.css"]);
-const PUBLIC_DIRECTORIES = ["carte_radio/"];
+const STATIC_ROOT = path.join(__dirname, "public");
 const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".svg", ".webp"]);
 
 const CONTENT_TYPES = {
@@ -226,7 +227,7 @@ function readRequestBody(request) {
 }
 
 function isPublicFile(relativePath) {
-  return PUBLIC_FILES.has(relativePath) || PUBLIC_DIRECTORIES.some((directory) => relativePath.startsWith(directory));
+  return relativePath !== "" && !relativePath.startsWith("..") && !path.isAbsolute(relativePath);
 }
 
 function serveStaticFile(requestPath, response) {
@@ -242,7 +243,7 @@ function serveStaticFile(requestPath, response) {
   const absolutePath = path.resolve(STATIC_ROOT, `.${normalizedPath}`);
   const relativePath = path.relative(STATIC_ROOT, absolutePath).split(path.sep).join("/");
 
-  // Allow-list: never expose server.js, session-store.json, service files, backups...
+  // Only files under public/ are served.
   if (!isPublicFile(relativePath)) {
     sendText(response, 404, "Not found");
     return;
@@ -403,7 +404,9 @@ function shutdown() {
 }
 
 process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
+if (!IS_VERCEL) {
+  process.on("SIGTERM", shutdown);
+}
 
 server.listen(PORT, HOST, () => {
   console.log(`NanDeck 1913 disponible sur http://${HOST}:${PORT}`);

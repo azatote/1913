@@ -1,10 +1,11 @@
 # README technique APP
 
 ## Fichiers
-- `index.html`: structure de l'interface, panneaux, zones de main, table
-- `styles.css`: layout, theme, zones fixes, table scrollable, tailles des mains
-- `app.js`: logique complete du jeu, rendu, synchro reseau, drag/drop, perspective joueur
-- `server.js`: serveur Node.js minimal, diffusion temps reel SSE, API JSON, attribution des joueurs
+- `public/index.html`: structure de l'interface, panneaux, zones de main, table
+- `public/styles.css`: layout, theme, zones fixes, table scrollable, tailles des mains
+- `public/app.js`: logique complete du jeu, rendu, synchro reseau, drag/drop, perspective joueur
+- `public/carte_radio/`: images des cartes
+- `server.js`: serveur Node.js minimal, diffusion temps reel SSE, API JSON, attribution des joueurs, sert `public/`
 - `package.json`: script de lancement du serveur
 
 ## Structure logique dans `app.js`
