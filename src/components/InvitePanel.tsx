@@ -1,4 +1,3 @@
-import QRCode from 'qrcode'
 import { useEffect, useMemo, useState } from 'react'
 import { buildGameUrl } from '../lib/gameId'
 
@@ -9,7 +8,8 @@ export function InvitePanel({ gameId }: { gameId: string }) {
 
   useEffect(() => {
     let active = true
-    QRCode.toDataURL(shareUrl, { width: 200, margin: 1, color: { dark: '#0b0b10', light: '#ffffff' } })
+    import('qrcode')
+      .then(({ default: QRCode }) => QRCode.toDataURL(shareUrl, { width: 200, margin: 1, color: { dark: '#0b0b10', light: '#ffffff' } }))
       .then((url) => {
         if (active) setQrCodeUrl(url)
       })

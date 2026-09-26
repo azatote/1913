@@ -28,8 +28,7 @@ import { InvitePanel } from './InvitePanel'
 import { SeatChooser } from './SeatChooser'
 
 const HIDE_OPPONENT_KEY = 'nd1913.hide-opponent-hand'
-const ZOOM_STEP = 0.25
-const MAX_ZOOM = 2.5
+const HIDE_SIDEBAR_KEY = 'nd1913.hide-sidebar'
 
 type SeatClaim = { seat: PlayerId; since: number }
 
@@ -100,7 +99,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
   const [selectedPileId, setSelectedPileId] = useState<string | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [hideOpponentHand, setHideOpponentHand] = useState(() => readStored('local', HIDE_OPPONENT_KEY) === '1')
-  const [zoom, setZoom] = useState(1)
+  const [hideSidebar, setHideSidebar] = useState(() => readStored('local', HIDE_SIDEBAR_KEY) === '1')
 
   const viewerSeat = seat ?? 'bottom'
   const opponentSeat = opponentOf(viewerSeat)
@@ -152,6 +151,12 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
     const next = !hideOpponentHand
     writeStored('local', HIDE_OPPONENT_KEY, next ? '1' : '0')
     setHideOpponentHand(next)
+  }
+
+  const toggleSidebar = () => {
+    const next = !hideSidebar
+    writeStored('local', HIDE_SIDEBAR_KEY, next ? '1' : '0')
+    setHideSidebar(next)
   }
 
   const purgeGame = async () => {
@@ -228,6 +233,16 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
     <div className="game">
       <header className="game-header">
         <div className="header-left">
+          <button
+            type="button"
+            className={`burger-button${hideSidebar ? '' : ' is-active'}`}
+            onClick={toggleSidebar}
+            aria-label={hideSidebar ? 'Afficher le panneau' : 'Masquer le panneau'}
+            aria-expanded={!hideSidebar}
+            title={hideSidebar ? 'Afficher le panneau' : 'Masquer le panneau pour agrandir la table'}
+          >
+            <span /><span /><span />
+          </button>
           <button type="button" className="brand" onClick={onLeave} title="Retour à l'accueil">
             Table <span className="accent">1913</span>
           </button>
@@ -239,7 +254,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
         </div>
       </header>
 
-      <div className="game-layout">
+      <div className={`game-layout${hideSidebar ? ' sidebar-hidden' : ''}`}>
         <aside className="sidebar">
           <section className="panel">
             <h2 className="panel-title">Actions de <span className="accent">jeu</span></h2>
@@ -262,15 +277,6 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
           </section>
 
           <section className="panel">
-            <h2 className="panel-title">Vue de la <span className="accent">table</span></h2>
-            <div className="zoom-control">
-              <button type="button" onClick={() => setZoom((value) => Math.max(1, value - ZOOM_STEP))} disabled={zoom <= 1} aria-label="Dézoomer">−</button>
-              <span>{Math.round(zoom * 100)} %</span>
-              <button type="button" onClick={() => setZoom((value) => Math.min(MAX_ZOOM, value + ZOOM_STEP))} disabled={zoom >= MAX_ZOOM} aria-label="Zoomer">+</button>
-            </div>
-          </section>
-
-          <section className="panel">
             <h2 className="panel-title">Inviter un <span className="accent">joueur</span></h2>
             <InvitePanel gameId={gameId} />
             <ul className="player-list" aria-label="Joueurs connectés">
@@ -290,6 +296,8 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
             <p>Clic sur une carte visible : la retourner</p>
             <p>Glisser-déposer : déplacer, ou fusionner sur un autre paquet</p>
             <p>Main : double-clic ou glisser sur la table pour jouer</p>
+            <p>Molette, pincement ou <kbd>+</kbd> <kbd>−</kbd> : zoom · <kbd>0</kbd> : ajuster</p>
+            <p>Glisser le fond de la table : déplacer la vue</p>
           </section>
 
           <section className="panel">
@@ -314,7 +322,6 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
           <Board
             state={state}
             mirrored={seat === 'top'}
-            zoom={zoom}
             selectedPileId={selectedPileId}
             remoteDrags={remoteDrags}
             canPlayFromHand={Boolean(seat)}

@@ -213,6 +213,24 @@ input:focus-visible,
 
 /* ---------- Sidebar ---------- */
 
+.game-layout.sidebar-hidden { grid-template-columns: minmax(0, 1fr); }
+.game-layout.sidebar-hidden .sidebar { display: none; }
+
+.burger-button {
+  display: grid;
+  place-content: center;
+  gap: 4px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  cursor: pointer;
+}
+.burger-button span { display: block; width: 16px; height: 2px; border-radius: 2px; background: var(--ink); }
+.burger-button:hover,
+.burger-button.is-active { border-color: var(--accent); }
+
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -268,21 +286,6 @@ kbd {
   color: var(--muted);
   font: 600 10px/1.4 var(--sans);
 }
-
-.zoom-control { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.zoom-control span { color: var(--ink); font-weight: 600; }
-.zoom-control button {
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  color: var(--ink);
-  background: var(--paper);
-  font-size: 18px;
-  cursor: pointer;
-}
-.zoom-control button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-.zoom-control button:disabled { opacity: 0.4; cursor: default; }
 
 .invite { display: flex; align-items: center; gap: 12px; }
 .invite img { width: 96px; height: 96px; border: 1px solid var(--line); border-radius: 10px; background: #fff; image-rendering: pixelated; }
@@ -380,19 +383,30 @@ kbd {
 /* ---------- Board ---------- */
 
 .board-stage {
+  position: relative;
   flex: 1;
   min-height: 0;
   container-type: size;
 }
 
-.board-scroller { width: 100%; height: 100%; overflow: auto; }
+.board-scroller {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  touch-action: none;
+  cursor: grab;
+  scrollbar-width: thin;
+}
+.board-scroller.is-panning { cursor: grabbing; }
 
-/* Fits the stage (cqw/cqh of .board-stage), then zooms. */
+/* Fits the stage (cqw/cqh of .board-stage), then zooms; auto margins center it until it overflows. */
 .board {
   position: relative;
   width: calc(min(100cqw, 100cqh * var(--board-ratio)) * var(--zoom));
   aspect-ratio: var(--board-ratio);
-  margin: 0 auto;
+  margin: auto;
   overflow: hidden;
   container-type: inline-size;
   border: 1px solid var(--line);
@@ -432,36 +446,48 @@ kbd {
 
 .pile {
   position: absolute;
+  top: 0;
+  left: 0;
   width: var(--card-width);
   height: var(--card-height);
+  contain: layout style;
   touch-action: none;
   user-select: none;
   cursor: grab;
-  transition: left 0.1s linear, top 0.1s linear;
+  transition: transform 0.1s linear;
 }
 .pile.is-dragging { cursor: grabbing; transition: none; }
 .pile.is-remote-drag { opacity: 0.85; }
 
-.pile-stack { position: absolute; inset: 0; animation: deal-in 0.28s ease-out; }
-.pile.is-opponent-row .pile-stack { rotate: 180deg; }
-
-.card-layer {
+/* One image per pile; thickness is drawn with stacked shadows instead of extra layers. */
+.pile-stack {
+  --edge: color-mix(in srgb, var(--paper) 70%, var(--line));
+  --edge-dark: color-mix(in srgb, var(--ink) 18%, transparent);
+  --lift: 0 0.4cqw 1cqw rgba(17, 24, 39, 0.22);
   position: absolute;
   inset: 0;
-  overflow: hidden;
   border-radius: 0.75cqw;
   background: var(--paper);
-  box-shadow: 0 0.4cqw 1cqw rgba(17, 24, 39, 0.22);
-  transform: translate(calc(var(--layer) * 0.06cqw), calc(var(--layer) * -0.06cqw));
+  box-shadow: var(--lift);
+  animation: deal-in 0.28s ease-out;
 }
-.card-layer img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.pile-stack.depth-1 { box-shadow: 0.12cqw 0.12cqw 0 var(--edge), 0.14cqw 0.14cqw 0 var(--edge-dark), var(--lift); }
+.pile-stack.depth-2 { box-shadow: 0.12cqw 0.12cqw 0 var(--edge), 0.24cqw 0.24cqw 0 var(--edge), 0.26cqw 0.26cqw 0 var(--edge-dark), var(--lift); }
+.pile-stack.depth-3 { box-shadow: 0.12cqw 0.12cqw 0 var(--edge), 0.24cqw 0.24cqw 0 var(--edge), 0.36cqw 0.36cqw 0 var(--edge), 0.38cqw 0.38cqw 0 var(--edge-dark), var(--lift); }
+.pile-stack.depth-4 { box-shadow: 0.12cqw 0.12cqw 0 var(--edge), 0.24cqw 0.24cqw 0 var(--edge), 0.36cqw 0.36cqw 0 var(--edge), 0.48cqw 0.48cqw 0 var(--edge), 0.5cqw 0.5cqw 0 var(--edge-dark), var(--lift); }
+.pile.is-opponent-row .pile-stack { rotate: 180deg; }
 
-.pile.is-selected .card-layer:last-child {
-  box-shadow: 0 0 0 0.2cqw var(--accent), 0 1cqw 2cqw -0.5cqw rgba(102, 88, 234, 0.55);
+.pile-stack img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  pointer-events: none;
 }
-.pile.is-dragging .card-layer:last-child {
-  box-shadow: 0 0 0 0.2cqw var(--accent), 0 1.6cqw 2.4cqw -0.6cqw rgba(17, 24, 39, 0.5);
-}
+
+.pile.is-selected .pile-stack img { outline: 0.2cqw solid var(--accent); outline-offset: 0.08cqw; }
+.pile.is-dragging .pile-stack { --lift: 0 1.6cqw 2.4cqw -0.6cqw rgba(17, 24, 39, 0.5); }
 
 .pile-count {
   position: absolute;
@@ -476,6 +502,50 @@ kbd {
   box-shadow: 0 0.3cqw 0.8cqw rgba(102, 88, 234, 0.45);
   font: 700 clamp(10px, 0.8cqw, 16px)/1.2 var(--sans);
   text-align: center;
+}
+
+.board-controls {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  box-shadow: 0 10px 24px -12px rgba(17, 24, 39, 0.45);
+  backdrop-filter: blur(6px);
+}
+.board-controls button {
+  min-width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 10px;
+  color: var(--ink);
+  background: transparent;
+  font: 600 16px var(--sans);
+  cursor: pointer;
+}
+.board-controls button:hover:not(:disabled) { color: var(--accent); background: var(--accent-soft); }
+.board-controls button:disabled { opacity: 0.35; cursor: default; }
+.board-controls .zoom-value { min-width: 64px; font-size: 13px; }
+
+.board-hint {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 5;
+  margin: 0;
+  padding: 5px 12px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--paper) 85%, transparent);
+  font-size: 11px;
+  pointer-events: none;
 }
 
 /* ---------- Overlays ---------- */
@@ -594,6 +664,7 @@ kbd {
   .play-area { order: 1; }
   .sidebar { order: 2; overflow: visible; border-top: 1px solid var(--line); border-right: 0; }
   .board-stage { flex: none; height: 62vh; }
+  .board-hint { display: none; }
 }
 
 @media (max-width: 560px) {

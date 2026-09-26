@@ -12,7 +12,7 @@ let back = ''
 for (const [path, url] of Object.entries(images)) {
   const match = /carte \((\d+)\)\.jpg$/.exec(path)
   if (match) faces.set(Number(match[1]), url)
-  else if (path.endsWith('dos.png')) back = url
+  else if (/dos\.(jpg|png)$/.test(path)) back = url
 }
 
 export const CARD_BACK_URL = back

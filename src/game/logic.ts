@@ -6,7 +6,6 @@ export const BOARD_HEIGHT = 1400
 export const CARD_WIDTH = 148
 export const CARD_HEIGHT = 220
 export const CARD_TOTAL = 56
-export const VISIBLE_LAYERS = 6
 
 const ROW_MARGIN = 28
 const MERGE_DISTANCE = 120
