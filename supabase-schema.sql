@@ -61,6 +61,12 @@ begin
       using errcode = '23514';
   end if;
 
+  if jsonb_array_length(new.state -> 'hands' -> 'top') > 2
+    or jsonb_array_length(new.state -> 'hands' -> 'bottom') > 2 then
+    raise exception 'Main pleine : 2 cartes maximum par joueur'
+      using errcode = '23514';
+  end if;
+
   select coalesce(array_agg((c.card ->> 'code')::integer), '{}')
     into card_codes
   from (

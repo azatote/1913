@@ -8,6 +8,7 @@ import {
   type CSSProperties,
   type DragEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from 'react'
 import { cardImageUrl } from '../game/cards'
 import {
@@ -51,6 +52,8 @@ type BoardProps = {
   onPlayFromHand: (index: number, position: Point) => void
   onDragMove: (pileId: string, position: Point) => void
   onDragEnd: (pileId: string) => void
+  hasOwnHand: boolean
+  children?: ReactNode
 }
 
 type DragSession = {
@@ -164,6 +167,8 @@ export function Board({
   onPlayFromHand,
   onDragMove,
   onDragEnd,
+  hasOwnHand,
+  children,
 }: BoardProps) {
   const scrollerRef = useRef<HTMLDivElement>(null)
   const boardRef = useRef<HTMLDivElement>(null)
@@ -380,7 +385,7 @@ export function Board({
   } as CSSProperties
 
   return (
-    <div className="board-stage">
+    <div className={`board-stage${hasOwnHand ? ' has-own-hand' : ''}`}>
       <div
         ref={scrollerRef}
         className="board-scroller"
@@ -430,6 +435,7 @@ export function Board({
         <button type="button" onClick={() => zoomAt(zoomRef.current * ZOOM_STEP)} disabled={zoom >= MAX_ZOOM} aria-label="Zoomer" title="Zoomer (+)">+</button>
       </div>
       <p className="board-hint">Molette ou pincement : zoom · Glisser le fond : déplacer la vue</p>
+      {children}
     </div>
   )
 }

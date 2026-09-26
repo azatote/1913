@@ -6,6 +6,7 @@ export const BOARD_HEIGHT = 1400
 export const CARD_WIDTH = 148
 export const CARD_HEIGHT = 220
 export const CARD_TOTAL = 56
+export const MAX_HAND_SIZE = 2
 
 const ROW_MARGIN = 28
 const MERGE_DISTANCE = 120
@@ -231,6 +232,9 @@ export function movePileToHand(state: GameState, pileId: string | null, playerId
   if (!pile) return { ok: false, message: 'Sélectionnez un paquet à envoyer dans une main.' }
   if (pile.cards.length > 1) {
     return { ok: false, message: "Impossible d'envoyer plusieurs cartes dans une main en une seule fois." }
+  }
+  if (state.hands[playerId].length >= MAX_HAND_SIZE) {
+    return { ok: false, message: `Main de ${PLAYERS[playerId].label} pleine : ${MAX_HAND_SIZE} cartes maximum.` }
   }
 
   state.hands[playerId].push(...pile.cards)

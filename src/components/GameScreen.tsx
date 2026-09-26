@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
+  MAX_HAND_SIZE,
   PLAYER_IDS,
   PLAYERS,
   drawCard,
@@ -24,7 +25,7 @@ import { readStored, writeStored } from '../lib/storage'
 import { tabId } from '../lib/tab'
 import { Board } from './Board'
 import { CardPreview } from './CardPreview'
-import { Hand } from './Hand'
+import { HandOverlay } from './HandOverlay'
 import { InvitePanel } from './InvitePanel'
 import { SeatChooser } from './SeatChooser'
 
@@ -99,6 +100,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
 
   const [selectedPileId, setSelectedPileId] = useState<string | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [handPreviewIndex, setHandPreviewIndex] = useState<number | null>(null)
   const [hideOpponentHand, setHideOpponentHand] = useState(() => readStored('local', HIDE_OPPONENT_KEY) === '1')
   const [hideSidebar, setHideSidebar] = useState(() => readStored('local', HIDE_SIDEBAR_KEY) === '1')
 
@@ -106,6 +108,8 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
   const opponentSeat = opponentOf(viewerSeat)
   const selectedPile = state ? findPile(state, selectedPileId) : undefined
   const selectedTopCard = selectedPile ? getTopCard(selectedPile) : undefined
+  const ownHand = seat && state ? state.hands[seat] : []
+  const handPreviewCard = handPreviewIndex === null ? undefined : ownHand[handPreviewIndex]
 
   const updateClaim = useCallback((next: SeatClaim | null) => {
     writeStored('session', seatKey, next ? JSON.stringify(next) : null)
@@ -193,6 +197,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
 
       if (event.key === 'Escape') {
         setPreviewOpen(false)
+        setHandPreviewIndex(null)
         return
       }
 
@@ -303,7 +308,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
             <p>Double-clic sur une pioche : piocher 1 carte</p>
             <p>Double-clic sur une carte visible : la retourner</p>
             <p>Glisser-déposer : déplacer, ou fusionner sur un autre paquet</p>
-            <p>Main : double-clic ou glisser sur la table pour jouer</p>
+            <p>Main ({MAX_HAND_SIZE} cartes max) : clic pour agrandir, glisser sur la table pour jouer</p>
             <p>Molette, pincement ou <kbd>+</kbd> <kbd>−</kbd> : zoom · <kbd>0</kbd> : ajuster</p>
             <p>Glisser le fond de la table : déplacer la vue</p>
           </section>
@@ -317,16 +322,6 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
         </aside>
 
         <main className="play-area">
-          {!hideOpponentHand && (
-            <Hand
-              playerId={opponentSeat}
-              cards={state.hands[opponentSeat]}
-              isOwn={false}
-              placement="top"
-              onPlay={() => undefined}
-              onReorder={() => undefined}
-            />
-          )}
           <Board
             state={state}
             mirrored={seat === 'top'}
@@ -340,20 +335,50 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
             onPlayFromHand={playCard}
             onDragMove={broadcastDrag}
             onDragEnd={broadcastDragEnd}
-          />
-          <Hand
-            playerId={viewerSeat}
-            cards={state.hands[viewerSeat]}
-            isOwn={Boolean(seat)}
-            placement="bottom"
-            onPlay={(index) => playCard(index)}
-            onReorder={(from, to) => seat && run((draft) => reorderHand(draft, seat, from, to))}
-          />
+            hasOwnHand={Boolean(seat)}
+          >
+            {!hideOpponentHand && (
+              <HandOverlay
+                playerId={opponentSeat}
+                cards={state.hands[opponentSeat]}
+                isOwn={false}
+                onPreview={() => undefined}
+                onReorder={() => undefined}
+              />
+            )}
+            {seat && (
+              <HandOverlay
+                playerId={seat}
+                cards={state.hands[seat]}
+                isOwn
+                onPreview={setHandPreviewIndex}
+                onReorder={(from, to) => run((draft) => reorderHand(draft, seat, from, to))}
+              />
+            )}
+          </Board>
         </main>
       </div>
 
       {!seat && <SeatChooser owners={owners} tabId={tabId} onChoose={chooseSeat} />}
       {previewOpen && selectedTopCard && <CardPreview card={selectedTopCard} onClose={() => setPreviewOpen(false)} />}
+      {handPreviewIndex !== null && handPreviewCard && (
+        <CardPreview
+          card={{ ...handPreviewCard, faceUp: true }}
+          onClose={() => setHandPreviewIndex(null)}
+          actions={(
+            <button
+              type="button"
+              className="primary-button small"
+              onClick={() => {
+                playCard(handPreviewIndex)
+                setHandPreviewIndex(null)
+              }}
+            >
+              Jouer sur la table
+            </button>
+          )}
+        />
+      )}
     </div>
   )
 }
