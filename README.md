@@ -1,193 +1,86 @@
-# README technique APP
+# Table 1913
 
-## Fichiers
-- `public/index.html`: structure de l'interface, panneaux, zones de main, table
-- `public/styles.css`: layout, theme, zones fixes, table scrollable, tailles des mains
-- `public/app.js`: logique complete du jeu, rendu, synchro reseau, drag/drop, perspective joueur
-- `public/carte_radio/`: images des cartes
-- `server.js`: serveur Node.js minimal, diffusion temps reel SSE, API JSON, attribution des joueurs, sert `public/`
-- `package.json`: script de lancement du serveur
+Table de jeu de cartes pour 2 joueurs en temps réel : pioche, retournement, fusion de paquets,
+mains cachées, vue retournée pour le joueur 2 et invitation par QR code.
 
-## Structure logique dans `app.js`
-- Etat principal:
-  - `piles`
-  - `hands`
-  - `selectedPileId`
-  - `activePlayerId`
-  - `viewerPlayerId`
-  - `tableZoom`
-  - `sessionRevision`
-- Joueurs:
-  - `top` = Joueur 2
-  - `bottom` = Joueur 1
+## Stack
 
-## Fonctions a connaitre en priorite
-- Perspective / affichage:
-  - `getViewerBottomPlayerId()`
-  - `getViewerTopPlayerId()`
-  - `isTopViewerPerspective()`
-  - `getDisplayPosition(modelX, modelY)`
-  - `getModelPointerPosition(viewX, viewY)`
-  - `getViewedRowIndex(rowIndex)`
-- Session / sync:
-  - `getSessionState()`
-  - `saveSessionState()`
-  - `loadSessionState()`
-  - `restoreSessionState(sessionState)`
-  - `handleCompleteReset(isRemote)`
-- Table / placement:
-  - `getRowYPositions()`
-  - `snapPileToRow(pile)`
-  - `snapPileVertically(pile)`
-  - `getPlayPositionForPlayer(playerId)`
-- Drag and drop:
-  - `startDrag(event, pileId)`
-  - `onPointerMove(event)`
-  - `onPointerUp(event)`
-  - `startHandDrag(playerId, cardIndex)`
-  - `onBoardDrop(event)`
-  - `getHandDropPlayerIdFromPoint(clientX, clientY)`
-  - `movePileToHand(pileId, playerId)`
-- Rendu:
-  - `createPileElement(pile)`
-  - `createHandCardElement(playerId, card, index)`
-  - `renderHand(playerId, zoneElement, cardsElement, metaElement)`
-  - `render()`
+| Brique | Rôle |
+| --- | --- |
+| React 19 + TypeScript 6 (strict) | Interface, composants fonctionnels et hooks |
+| Vite 8.3 + `@vitejs/plugin-react` | Dev, build, import des cartes via `import.meta.glob` |
+| `qrcode` | QR code d'invitation du second joueur |
+| CSS natif | Variables de thème, container queries (`cqw`, `cqh`), `aspect-ratio`, `@keyframes` |
+| Supabase (sans serveur à coder) | PostgreSQL, RLS, triggers, Realtime (Postgres Changes, Broadcast, Presence) |
+| oxlint | `npm run lint` |
+| Vercel | Déploiement à chaque push sur `main`, aperçu pour chaque branche `feature/*` |
 
-## Regle importante sur les coordonnees
-La source de verite reste la coordonnee de modele partagee entre toutes les fenetres.
+## Architecture
 
-- Une pile est stockee en coordonnees de modele.
-- Selon le joueur de la session, cette pile peut etre affichee a une autre position ecran.
-- Le pointeur utilisateur doit donc etre reconverti vers la coordonnee de modele avant toute modification.
+- **Le front parle directement à Supabase** : aucune API intermédiaire.
+- **Table `nd1913_games`** : une ligne par partie. Le modèle de jeu (piles, mains) est dans la colonne `state` (JSON),
+  `revision` sert au contrôle de concurrence.
+- **Mise à jour optimiste** : l'action s'affiche tout de suite, puis l'écriture en base
+  (`update … where revision = n`) la confirme. Si l'autre joueur a joué entre-temps, l'action est annulée
+  et l'état du serveur est rechargé.
+- **Contrôles côté base** : contraintes `CHECK` sur la forme du JSON, trigger qui impose `revision = ancienne + 1`
+  et vérifie que le paquet contient toujours 56 cartes uniques numérotées de 1 à 56.
+- **Deux canaux temps réel** :
+  - *Broadcast* : position des paquets pendant un glisser-déposer, suppression de la partie (éphémère) ;
+  - *Postgres Changes* : chaque état enregistré.
+- **Presence** : joueurs connectés et attribution des places Joueur 1 / Joueur 2 (la place la plus ancienne gagne).
+- **Coordonnées de modèle** : la table fait toujours 2200 × 1400 unités, quel que soit l'écran.
+  Le joueur 2 voit une image miroir (`mirrorTopLeft`, sa propre inverse).
 
-Si une future modification casse l'alignement entre la main visible et la ligne de pose, verifier d'abord:
-1. `getDisplayPosition(...)`
-2. `getModelPointerPosition(...)`
-3. `getPlayPositionForPlayer(...)`
-4. `createPileElement(...)`
-5. `getBoardPointerPosition(...)`
-
-## Comportement attendu par session
-### Session Joueur 1
-- Main Joueur 1 en bas
-- Main Joueur 2 en haut
-- Ligne de pose Joueur 1 juste au-dessus de la main du bas
-- Ligne de pose Joueur 2 a l'oppose
-
-### Session Joueur 2
-- Main Joueur 2 en bas
-- Main Joueur 1 en haut
-- Ligne de pose Joueur 2 juste au-dessus de la main du bas
-- Ligne de pose Joueur 1 a l'oppose
-
-## Mode multi-poste
-La source de verite n'est plus le navigateur local.
-
-- Le serveur `server.js` porte l'etat partage de la partie.
-- Les clients chargent l'etat via `GET /api/bootstrap`.
-- Les clients publient leurs changements via `POST /api/session`.
-- Le serveur diffuse les mises a jour via `EventSource` sur `GET /api/events`.
-- Les reservations de joueur passent par `POST /api/player/reserve` et `POST /api/player/release`.
-- Un heartbeat evite qu'un joueur reste bloque trop longtemps si un navigateur disparait sans fermeture propre.
-
-## Lancement local ou sur Raspberry Pi
-### Prerequis
-- Node.js 18 ou plus recent
-
-### Demarrage
-Dans le dossier `APP`:
-
-```powershell
-npm start
-```
-
-Le serveur ecoute par defaut sur `http://0.0.0.0:8765`.
-
-Depuis un autre poste du reseau local, ouvrir:
+## Structure
 
 ```text
-http://IP_DU_RASPBERRY:8765
+supabase-schema.sql      Script SQL rejouable (SQL Editor de Supabase)
+src/game/logic.ts        Règles pures : pioche, retournement, fusion, mains, aimantation aux lignes
+src/game/useGame.ts      Synchronisation Supabase : chargement, écriture optimiste, Realtime
+src/game/cards.ts        Images des cartes (src/assets/cartes)
+src/components/          Accueil, table, mains, choix du joueur, invitation, aperçu
 ```
 
-Exemple:
+## Démarrer
 
-```text
-http://192.168.1.42:8765
-```
+1. Créer un projet sur [supabase.com](https://supabase.com), puis exécuter `supabase-schema.sql` dans le **SQL Editor**
+   (à relancer à chaque évolution du schéma, le script est rejouable).
+2. Copier `.env.example` en `.env.local` et renseigner `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY`.
+3. Lancer :
 
-## Demarrage automatique avec systemd sur Raspberry Pi
-Un fichier de service pret a l'emploi est fourni dans `nandeck1913.service`.
-Une variante `www-data` est aussi fournie dans `nandeck1913.www-data.service`.
+   ```bash
+   npm install
+   npm run dev
+   ```
 
-### Hypotheses du fichier fourni
-- utilisateur Linux: `pi`
-- projet copie dans `/var/www/html/domo/APP/APP/APP`
-- `npm` disponible dans `/usr/bin/npm`
+4. Sur Vercel : importer le dépôt et renseigner les deux mêmes variables d'environnement.
+   `vercel.json` fixe les commandes d'installation et de build.
 
-### Variante pour www-data
-Utilise `nandeck1913.www-data.service` si le dossier du projet appartient a `www-data` ou si ton environnement web Raspberry execute deja les processus applicatifs sous cet utilisateur.
+## Commandes
 
-Le service `www-data` contient:
-- `User=www-data`
-- `Group=www-data`
-- `WorkingDirectory=/var/www/html/domo/APP/APP/APP`
+| Commande | Rôle |
+| --- | --- |
+| `npm run dev` | Serveur de développement |
+| `npm run build` | Vérification TypeScript puis build dans `dist/` |
+| `npm run lint` | oxlint |
+| `npm run preview` | Sert le build localement |
 
-Avant de l'activer, verifie que `www-data` peut lire et executer ce dossier ainsi que `node` et `npm`.
+## Raccourcis en jeu
 
-Si ton Raspberry utilise un autre utilisateur ou un autre chemin, adapte ces lignes dans `nandeck1913.service`:
-- `User=`
-- `WorkingDirectory=`
-- `ExecStart=`
+| Touche | Action |
+| --- | --- |
+| Clic sur une pioche | Piocher 1 carte |
+| Clic sur une carte visible | La retourner |
+| Glisser-déposer | Déplacer, ou fusionner sur un autre paquet |
+| Double-clic sur une carte en main | La jouer |
+| `D` / `F` | Piocher / retourner le paquet sélectionné |
+| `Espace` / `Échap` | Agrandir / fermer l'aperçu |
 
-### Installation du service
+## Points d'attention
 
-```bash
-sudo cp nandeck1913.service /etc/systemd/system/nandeck1913.service
-sudo systemctl daemon-reload
-sudo systemctl enable nandeck1913.service
-sudo systemctl start nandeck1913.service
-```
-
-### Verification
-
-```bash
-sudo systemctl status nandeck1913.service
-journalctl -u nandeck1913.service -f
-```
-
-### Installation de la variante www-data
-
-```bash
-sudo cp nandeck1913.www-data.service /etc/systemd/system/nandeck1913.service
-sudo systemctl daemon-reload
-sudo systemctl enable nandeck1913.service
-sudo systemctl start nandeck1913.service
-sudo systemctl status nandeck1913.service
-```
-
-### Verification des permissions
-
-```bash
-ls -ld /var/www/html/domo/APP/APP/APP
-sudo -u www-data /usr/bin/npm --prefix /var/www/html/domo/APP/APP/APP start
-```
-
-Si cette commande echoue, il faut corriger le proprietaire ou les droits du dossier avant d'utiliser le service `www-data`.
-
-### Redemarrage apres mise a jour
-
-```bash
-sudo systemctl restart nandeck1913.service
-```
-
-## Validation utile apres chaque changement
-- Verifier absence d'erreurs sur `APP/app.js` et `APP/server.js`
-- Lancer `node --check server.js`
-- Charger `http://127.0.0.1:8765/`
-- Tester dans deux navigateurs ou deux postes:
-  - attribution automatique du deuxieme joueur
-  - drag table -> main
-  - drag main -> table
-  - synchro des positions
-  - alignement entre main visible et ligne de pose
+- **Lockfile** : il doit pointer vers `https://registry.npmjs.org/` (et non un miroir interne) et contenir
+  les binaires optionnels de toutes les plateformes, sinon le build Vercel échoue.
+- **Accès anonyme** : les règles RLS sont ouvertes (outil entre amis, pas de compte).
+  Pour un site public, ajouter Supabase Auth et resserrer les règles.
+- **Suppression** : le bouton « Supprimer la partie » efface la ligne en base pour les deux joueurs.

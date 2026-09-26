@@ -1,4 +1,19 @@
-node_modules/
-session-store.json
-session-store.json.tmp
+# Logs
+logs
+*.log
+npm-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Ancienne version Node / Raspberry
+session-store.json*
 *.bak*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
