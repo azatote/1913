@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestionnaire de cartes 1913</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="playerChooser" class="player-chooser" aria-modal="true" role="dialog">
+    <div class="player-chooser-panel">
+      <p class="eyebrow">Ouverture de session</p>
+      <h2>Quel joueur voulez-vous incarner ?</h2>
+      <p class="chooser-text">Choisissez votre point de vue avant d'ouvrir cette session.</p>
+      <div class="chooser-actions">
+        <button id="choosePlayerOneButton" type="button">Joueur 1</button>
+        <button id="choosePlayerTwoButton" type="button">Joueur 2</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="shell">
+    <aside class="toolbar">
+      <div>
+        <p class="eyebrow">Table de jeu</p>
+        <h1>Gestionnaire de cartes 1913</h1>
+        <p class="intro">
+          Déplacez les paquets, retournez la carte du dessus et superposez les piles pour former de nouveaux paquets.
+        </p>
+      </div>
+
+      <div class="panel">
+        <button id="resetButton" type="button">Nouvelle partie</button>
+        <button id="completeResetButton" type="button">Reset complet</button>
+        <button id="shuffleButton" type="button">Mélanger la pile</button>
+      </div>
+
+      <div class="panel">
+        <p><strong>Vue courante</strong></p>
+        <p id="viewerPlayerLabel">Joueur incarne: -</p>
+        <p id="activePlayerLabel">Tour: -</p>
+        <button id="toggleOpponentHandButton" type="button">Masquer la main adverse</button>
+      </div>
+
+      <div class="panel">
+        <p><strong>Main cachée</strong></p>
+        <button id="sendToBottomHandButton" type="button">Envoyer vers la main du joueur 1</button>
+        <button id="sendToTopHandButton" type="button">Envoyer vers la main du joueur 2</button>
+      </div>
+
+      <div class="panel legend">
+        <p><strong>Actions</strong></p>
+        <p>Clic sur une pioche: piocher 1 carte</p>
+        <p>Clic sur une carte visible: retourner le dessus</p>
+        <p>Glisser-déposer: déplacer un paquet</p>
+        <p>Déposer sur un autre paquet: fusionner</p>
+        <p>Jouer depuis la main: double-clic ou glisser-deposer</p>
+      </div>
+
+      <div class="panel status-panel">
+        <div class="server-indicator" aria-live="polite">
+          <span id="serverIndicatorDot" class="server-indicator-dot is-connecting" aria-hidden="true"></span>
+          <div>
+            <p class="server-indicator-label">Serveur</p>
+            <p id="serverIndicatorText" class="server-indicator-text">Connexion au serveur…</p>
+          </div>
+        </div>
+        <div class="sync-indicator">
+          <span id="syncIndicatorDot" class="sync-indicator-dot is-waiting" aria-hidden="true"></span>
+          <span id="syncIndicatorText">En attente</span>
+        </div>
+        <p id="statusText">Initialisation…</p>
+      </div>
+    </aside>
+
+    <main class="play-area">
+      <section id="topHandZone" class="hand-zone hand-zone-top" aria-label="Main du joueur 2">
+        <div class="hand-header">
+          <div>
+            <p id="topHandTitle" class="hand-title">Main du joueur 2</p>
+            <p id="topHandMeta" class="hand-meta">0 carte</p>
+          </div>
+        </div>
+        <div id="topHandCards" class="hand-cards"></div>
+      </section>
+
+      <div class="board-wrap">
+        <div id="board" class="board" aria-label="Table de jeu"></div>
+      </div>
+
+      <section id="bottomHandZone" class="hand-zone hand-zone-bottom" aria-label="Main du joueur 1">
+        <div class="hand-header">
+          <div>
+            <p id="bottomHandTitle" class="hand-title">Main du joueur 1</p>
+            <p id="bottomHandMeta" class="hand-meta">0 carte</p>
+          </div>
+        </div>
+        <div id="bottomHandCards" class="hand-cards"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="cardPreview" class="card-preview" hidden aria-hidden="true">
+    <button id="cardPreviewBackdrop" class="card-preview-backdrop" type="button" aria-label="Fermer l'aperçu de la carte"></button>
+    <div class="card-preview-dialog" role="dialog" aria-modal="true" aria-label="Vue agrandie de la carte sélectionnée">
+      <img id="cardPreviewImage" class="card-preview-image" alt="" />
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

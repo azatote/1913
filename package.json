@@ -1,0 +1,9 @@
+{
+  "name": "nandeck1913-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Serveur local pour la table 1913 multi-poste",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
