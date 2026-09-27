@@ -74,6 +74,7 @@ src/components/          Accueil, table, mains, choix du joueur, invitation, ape
 | Double-clic sur une pioche | Piocher 1 carte |
 | Double-clic sur une carte visible | La retourner |
 | Glisser-déposer | Déplacer, ou fusionner sur un autre paquet |
+| Ligne d'un joueur | 7 emplacements, une carte chacun, aimantées bord à bord ; votre ligne est affichée en plus grand |
 | Double-clic sur une carte en main | La jouer |
 | `D` / `F` | Piocher / retourner le paquet sélectionné |
 | Molette, pincement, `+` / `−` / `0` | Zoomer, dézoomer, ajuster |

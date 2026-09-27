@@ -308,6 +308,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
             <p>Double-clic sur une pioche : piocher 1 carte</p>
             <p>Double-clic sur une carte visible : la retourner</p>
             <p>Glisser-déposer : déplacer, ou fusionner sur un autre paquet</p>
+            <p>Ligne d'un joueur : 7 cartes max, une par emplacement, aimantées bord à bord</p>
             <p>Main ({MAX_HAND_SIZE} cartes max) : clic pour agrandir, glisser sur la table pour jouer</p>
             <p>Molette, pincement ou <kbd>+</kbd> <kbd>−</kbd> : zoom · <kbd>0</kbd> : ajuster</p>
             <p>Glisser le fond de la table : déplacer la vue</p>

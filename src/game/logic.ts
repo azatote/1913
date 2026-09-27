@@ -7,6 +7,9 @@ export const CARD_WIDTH = 148
 export const CARD_HEIGHT = 220
 export const CARD_TOTAL = 56
 export const MAX_HAND_SIZE = 3
+export const PLAYER_ROW_SLOTS = 7
+// Visual enlargement of the viewer's own row (display only, the model is unchanged).
+export const OWN_ROW_SCALE = 1.35
 
 const STARTING_HAND_SIZE = 2
 const STARTING_MARKET_SIZE = 5
@@ -16,7 +19,6 @@ const ROW_MARGIN = 28
 const MERGE_DISTANCE = 120
 const SNAP_DISTANCE = 28
 const DRAW_OFFSET = { x: 190, y: 20 }
-const PLAY_START_X = 56
 const PLAY_STEP_X = 42
 
 export const ROW_Y = [
@@ -31,6 +33,21 @@ export const PLAYERS: Record<PlayerId, { label: string; rowIndex: number }> = {
 }
 
 export const PLAYER_IDS: PlayerId[] = ['bottom', 'top']
+
+const PLAYER_ROW_START = Math.round((BOARD_WIDTH - PLAYER_ROW_SLOTS * CARD_WIDTH) / 2)
+
+export function isPlayerRow(rowIndex: number) {
+  return PLAYER_IDS.some((playerId) => PLAYERS[playerId].rowIndex === rowIndex)
+}
+
+export function playerRowSlotX(slot: number) {
+  return PLAYER_ROW_START + slot * CARD_WIDTH
+}
+
+function rowOwnerLabel(rowIndex: number) {
+  const owner = PLAYER_IDS.find((playerId) => PLAYERS[playerId].rowIndex === rowIndex)
+  return owner ? PLAYERS[owner].label : ''
+}
 
 export function createId() {
   return typeof crypto.randomUUID === 'function'
@@ -141,11 +158,38 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(value, max))
 }
 
-// Snaps to the nearest row, then aligns on a face-up pile of the same row.
-export function snapPosition(state: GameState, pile: Pile, target: Point): Point {
+function slotOf(x: number) {
+  return clamp(Math.round((x - PLAYER_ROW_START) / CARD_WIDTH), 0, PLAYER_ROW_SLOTS - 1)
+}
+
+// Player rows: single cards magnetized edge to edge on 7 fixed slots; null when no slot is available.
+function snapToPlayerRow(state: GameState, pile: Pile, rowIndex: number, x: number): Point | null {
+  if (pile.cards.length > 1) return null
+  const taken = new Set(
+    state.piles
+      .filter((other) => other.id !== pile.id && nearestRowIndex(other.y) === rowIndex)
+      .map((other) => slotOf(other.x)),
+  )
+  const wanted = slotOf(x)
+  const [slot] = Array.from({ length: PLAYER_ROW_SLOTS }, (_, index) => index)
+    .filter((index) => !taken.has(index))
+    .sort((left, right) => Math.abs(left - wanted) - Math.abs(right - wanted))
+  return slot === undefined ? null : { x: playerRowSlotX(slot), y: ROW_Y[rowIndex] }
+}
+
+function rowRefusal(pile: Pile, target: Point) {
+  const rowIndex = nearestRowIndex(target.y)
+  return pile.cards.length > 1
+    ? `Une seule carte par emplacement dans la ligne de ${rowOwnerLabel(rowIndex)}.`
+    : `Ligne de ${rowOwnerLabel(rowIndex)} pleine : ${PLAYER_ROW_SLOTS} cartes maximum.`
+}
+
+// Snaps to the nearest row: fixed slots in player rows, alignment on a face-up pile elsewhere.
+export function snapPosition(state: GameState, pile: Pile, target: Point): Point | null {
   const rowIndex = nearestRowIndex(clamp(target.y, 0, BOARD_HEIGHT - CARD_HEIGHT))
   const position = { x: clamp(target.x, 0, BOARD_WIDTH - CARD_WIDTH), y: ROW_Y[rowIndex] }
 
+  if (isPlayerRow(rowIndex)) return snapToPlayerRow(state, pile, rowIndex, position.x)
   if (!isPileFaceUp(pile)) return position
 
   const neighbour = state.piles.find((candidate) => (
@@ -167,10 +211,12 @@ function removePile(state: GameState, pileId: string) {
   state.piles = state.piles.filter((pile) => pile.id !== pileId)
 }
 
-function addPile(state: GameState, cards: Card[], target: Point) {
+function addPile(state: GameState, cards: Card[], target: Point): Pile | null {
+  const pile: Pile = { id: createId(), x: 0, y: 0, z: state.topZ + 1, cards }
+  const position = snapPosition(state, pile, target)
+  if (!position) return null
+  Object.assign(pile, position)
   state.topZ += 1
-  const pile: Pile = { id: createId(), x: 0, y: 0, z: state.topZ, cards }
-  Object.assign(pile, snapPosition(state, pile, target))
   state.piles.push(pile)
   return pile
 }
@@ -191,7 +237,9 @@ export function drawCard(state: GameState, pileId: string): ActionResult {
   if (!source || !card) return { ok: false, message: 'Aucune carte disponible à piocher.' }
 
   card.faceUp = true
-  const pile = addPile(state, [card], { x: source.x + DRAW_OFFSET.x, y: source.y + DRAW_OFFSET.y })
+  const target = { x: source.x + DRAW_OFFSET.x, y: source.y + DRAW_OFFSET.y }
+  const pile = addPile(state, [card], target)
+  if (!pile) return { ok: false, message: rowRefusal({ ...source, cards: [card] }, target) }
   // Fans successive draws out instead of stacking them exactly on the same spot.
   while (
     pile.x + PLAY_STEP_X <= BOARD_WIDTH - CARD_WIDTH
@@ -214,7 +262,7 @@ export function flipTopCard(state: GameState, pileId: string | null): ActionResu
   if (!pile || !topCard) return { ok: false, message: 'Sélectionnez un paquet avec au moins une carte.' }
 
   topCard.faceUp = !topCard.faceUp
-  Object.assign(pile, snapPosition(state, pile, pile))
+  Object.assign(pile, snapPosition(state, pile, pile) ?? {})
   bringToFront(state, pile)
   return {
     ok: true,
@@ -237,7 +285,9 @@ export function movePile(state: GameState, pileId: string, target: Point): Actio
   const pile = findPile(state, pileId)
   if (!pile) return { ok: false, message: '' }
 
-  Object.assign(pile, snapPosition(state, pile, target))
+  const position = snapPosition(state, pile, target)
+  if (!position) return { ok: false, message: rowRefusal(pile, target) }
+  Object.assign(pile, position)
   bringToFront(state, pile)
 
   const mergeTarget = state.piles.find((candidate) => (
@@ -250,7 +300,7 @@ export function movePile(state: GameState, pileId: string, target: Point): Actio
   mergeTarget.cards.push(...pile.cards)
   removePile(state, pile.id)
   bringToFront(state, mergeTarget)
-  Object.assign(mergeTarget, snapPosition(state, mergeTarget, mergeTarget))
+  Object.assign(mergeTarget, snapPosition(state, mergeTarget, mergeTarget) ?? {})
   return {
     ok: true,
     message: `Paquets fusionnés : ${formatCardCount(mergeTarget.cards.length)}.`,
@@ -273,22 +323,16 @@ export function movePileToHand(state: GameState, pileId: string | null, playerId
   return { ok: true, message: `Carte envoyée dans la main de ${PLAYERS[playerId].label}.`, selectedPileId: null }
 }
 
-function nextPlayPosition(state: GameState, playerId: PlayerId): Point {
-  const rowIndex = PLAYERS[playerId].rowIndex
-  const rowPiles = state.piles.filter((pile) => nearestRowIndex(pile.y) === rowIndex)
-  const x = rowPiles.length === 0
-    ? PLAY_START_X
-    : Math.min(Math.max(...rowPiles.map((pile) => pile.x)) + PLAY_STEP_X, BOARD_WIDTH - CARD_WIDTH - 24)
-  return { x, y: ROW_Y[rowIndex] }
-}
-
 export function playFromHand(state: GameState, playerId: PlayerId, index: number, target?: Point): ActionResult {
-  const position = target ?? nextPlayPosition(state, playerId)
-  const [card] = state.hands[playerId].splice(index, 1)
+  const card = state.hands[playerId][index]
   if (!card) return { ok: false, message: '' }
 
-  card.faceUp = true
-  const pile = addPile(state, [card], position)
+  // Without a drop point the card goes to the first free slot of the player's row.
+  const position = target ?? { x: playerRowSlotX(0), y: ROW_Y[PLAYERS[playerId].rowIndex] }
+  const pile = addPile(state, [{ ...card, faceUp: true }], position)
+  if (!pile) return { ok: false, message: rowRefusal({ id: '', x: 0, y: 0, z: 0, cards: [card] }, position) }
+
+  state.hands[playerId].splice(index, 1)
   return { ok: true, message: `Carte ${card.code} jouée depuis la main de ${PLAYERS[playerId].label}.`, selectedPileId: pile.id }
 }
 

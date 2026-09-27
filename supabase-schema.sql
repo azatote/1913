@@ -67,6 +67,13 @@ begin
       using errcode = '23514';
   end if;
 
+  -- Player rows are at y = 28 (Joueur 2) and y = 1152 (Joueur 1) in model coordinates (see ROW_Y in logic.ts).
+  if (select count(*) from jsonb_array_elements(new.state -> 'piles') as p(pile) where (p.pile ->> 'y')::numeric = 28) > 7
+    or (select count(*) from jsonb_array_elements(new.state -> 'piles') as p(pile) where (p.pile ->> 'y')::numeric = 1152) > 7 then
+    raise exception 'Ligne pleine : 7 cartes maximum par joueur'
+      using errcode = '23514';
+  end if;
+
   select coalesce(array_agg((c.card ->> 'code')::integer), '{}')
     into card_codes
   from (

@@ -354,8 +354,9 @@ kbd {
   gap: 6px;
   pointer-events: none;
 }
-.hand-overlay.is-own { bottom: 0; left: 50%; translate: -50% 0; }
-.hand-overlay.is-opponent { top: 10px; left: 12px; }
+.hand-overlay.is-own { bottom: 0; left: 50%; display: flex; align-items: flex-end; translate: -50% 0; }
+.hand-overlay.is-own .hand-label { margin-bottom: 10px; }
+.hand-overlay.is-opponent { top: 10px; right: 12px; justify-items: end; }
 .hand-overlay.is-opponent .hand-label { order: 2; }
 
 .hand-label {
@@ -372,12 +373,12 @@ kbd {
 
 /* Half of the held cards sits below the stage edge, which clips it. */
 .hand-fan {
-  --hand-card-height: min(40cqh, 340px);
+  --hand-card-height: min(34cqh, 300px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
   min-width: 120px;
-  margin-bottom: calc(var(--hand-card-height) * -0.5);
+  margin-bottom: calc(var(--hand-card-height) * -0.62);
   pointer-events: auto;
 }
 .hand-overlay.is-opponent .hand-fan { --hand-card-height: min(15cqh, 110px); min-width: 0; margin-bottom: 0; }
@@ -406,7 +407,7 @@ kbd {
 .hand-card:hover,
 .hand-card:focus-visible {
   z-index: 2;
-  transform: translateY(-48%) rotate(0deg) scale(1.06);
+  transform: translateY(-60%) rotate(0deg) scale(1.06);
   box-shadow: 0 28px 60px -18px rgba(17, 24, 39, 0.65), 0 0 0 2px var(--accent);
 }
 .hand-card img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
@@ -443,7 +444,7 @@ kbd {
   border-radius: 16px;
   container-type: size;
 }
-.board-stage.has-own-hand { --hand-reserve: 12cqh; }
+.board-stage.has-own-hand { --hand-reserve: 14cqh; }
 
 /* The bottom padding lets the table scroll above the held cards. */
 .board-scroller {
@@ -502,6 +503,32 @@ kbd {
   font-weight: 500;
 }
 
+.row-slot {
+  position: absolute;
+  border: 1px dashed color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 0.75cqw;
+  pointer-events: none;
+}
+.row-slots.viewed-row-2 .row-slot {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-radius: 1cqw;
+}
+
+.row-label {
+  position: absolute;
+  translate: calc(-100% - 1cqw) -50%;
+  padding: 0.2cqw 0.7cqw;
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--paper);
+  font-size: clamp(9px, 0.7cqw, 13px);
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.row-slots.viewed-row-2 .row-label { color: var(--accent); font-weight: 600; }
+
 .pile {
   position: absolute;
   top: 0;
@@ -509,6 +536,7 @@ kbd {
   width: var(--card-width);
   height: var(--card-height);
   contain: layout style;
+  transform-origin: 0 0;
   touch-action: none;
   user-select: none;
   cursor: grab;
@@ -566,7 +594,7 @@ kbd {
   position: absolute;
   right: 12px;
   bottom: 12px;
-  z-index: 5;
+  z-index: 7;
   display: flex;
   align-items: center;
   gap: 2px;

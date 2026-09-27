@@ -16,14 +16,18 @@ import {
   BOARD_WIDTH,
   CARD_HEIGHT,
   CARD_WIDTH,
+  OWN_ROW_SCALE,
   PLAYER_IDS,
+  PLAYER_ROW_SLOTS,
   PLAYERS,
   ROW_Y,
   formatCardCount,
   getTopCard,
   isPlayerId,
+  isPlayerRow,
   mirrorTopLeft,
   nearestRowIndex,
+  playerRowSlotX,
   snapPosition,
   viewedRowIndex,
 } from '../game/logic'
@@ -61,7 +65,7 @@ type DragSession = {
   pointerId: number
   startX: number
   startY: number
-  offset: Point
+  grab: Point
   moved: boolean
   position: Point
 }
@@ -81,6 +85,33 @@ function toCqw(value: number) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(value, max))
+}
+
+const OWN_ROW_BOTTOM = ROW_Y[2] + CARD_HEIGHT
+const OWN_ROW_TOP = OWN_ROW_BOTTOM - CARD_HEIGHT * OWN_ROW_SCALE
+
+type ViewRect = Point & { scale: number }
+
+// The row viewed at the bottom (the viewer's own row) is enlarged around the board center and its bottom edge.
+function toViewRect(model: Point, mirrored: boolean): ViewRect {
+  const view = mirrorTopLeft(model, mirrored)
+  if (viewedRowIndex(nearestRowIndex(model.y), mirrored) !== 2) return { ...view, scale: 1 }
+  const centerX = BOARD_WIDTH / 2
+  return {
+    x: centerX + (view.x - centerX) * OWN_ROW_SCALE,
+    y: OWN_ROW_BOTTOM - (OWN_ROW_BOTTOM - view.y) * OWN_ROW_SCALE,
+    scale: OWN_ROW_SCALE,
+  }
+}
+
+// Inverse of the enlargement for a point (not a top-left corner) in view coordinates.
+function unscaleViewPoint(point: Point): Point {
+  if (point.y < OWN_ROW_TOP) return point
+  const centerX = BOARD_WIDTH / 2
+  return {
+    x: centerX + (point.x - centerX) / OWN_ROW_SCALE,
+    y: OWN_ROW_BOTTOM - (OWN_ROW_BOTTOM - point.y) / OWN_ROW_SCALE,
+  }
 }
 
 function rowLabel(rowIndex: number) {
@@ -105,6 +136,7 @@ type PileViewProps = PileHandlers & {
   pile: Pile
   viewX: number
   viewY: number
+  scale: number
   zIndex: number
   selected: boolean
   dragging: boolean
@@ -116,6 +148,7 @@ const PileView = memo(function PileView({
   pile,
   viewX,
   viewY,
+  scale,
   zIndex,
   selected,
   dragging,
@@ -137,7 +170,7 @@ const PileView = memo(function PileView({
   return (
     <div
       className={className}
-      style={{ transform: `translate(${toCqw(viewX)}, ${toCqw(viewY)})`, zIndex }}
+      style={{ transform: `translate(${toCqw(viewX)}, ${toCqw(viewY)}) scale(${scale})`, zIndex }}
       role="button"
       aria-label={`${topCard?.faceUp ? `Carte ${topCard.code}` : 'Paquet face cachée'}, ${formatCardCount(pile.cards.length)}`}
       aria-pressed={selected}
@@ -269,13 +302,17 @@ export function Board({
     event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
     const pointer = pointerToView(event.clientX, event.clientY)
-    const view = mirrorTopLeft(pile, isMirrored)
+    const rect = toViewRect(pile, isMirrored)
     dragRef.current = {
       pileId,
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      offset: { x: pointer.x - view.x, y: pointer.y - view.y },
+      // Grab point as a fraction of the card, so it stays under the pointer at any display scale.
+      grab: {
+        x: (pointer.x - rect.x) / (CARD_WIDTH * rect.scale),
+        y: (pointer.y - rect.y) / (CARD_HEIGHT * rect.scale),
+      },
       moved: false,
       position: { x: pile.x, y: pile.y },
     }
@@ -292,9 +329,12 @@ export function Board({
     if (!pile) return
     drag.moved = true
     scrollNearEdge(event.clientX, event.clientY)
-    const pointer = pointerToView(event.clientX, event.clientY)
-    const model = mirrorTopLeft({ x: pointer.x - drag.offset.x, y: pointer.y - drag.offset.y }, isMirrored)
-    drag.position = snapPosition(current, pile, model)
+    const pointer = unscaleViewPoint(pointerToView(event.clientX, event.clientY))
+    const model = mirrorTopLeft({ x: pointer.x - drag.grab.x * CARD_WIDTH, y: pointer.y - drag.grab.y * CARD_HEIGHT }, isMirrored)
+    drag.position = snapPosition(current, pile, model) ?? {
+      x: clamp(model.x, 0, BOARD_WIDTH - CARD_WIDTH),
+      y: clamp(model.y, 0, BOARD_HEIGHT - CARD_HEIGHT),
+    }
     setDragPreview({ pileId, position: drag.position })
     notify(pileId, drag.position)
   }, [pointerToView])
@@ -373,7 +413,7 @@ export function Board({
     const index = readHandCardIndex(event.dataTransfer)
     if (!canPlayFromHand || index === null) return
     event.preventDefault()
-    const pointer = pointerToView(event.clientX, event.clientY)
+    const pointer = unscaleViewPoint(pointerToView(event.clientX, event.clientY))
     onPlayFromHand(index, mirrorTopLeft({ x: pointer.x - CARD_WIDTH / 2, y: pointer.y - CARD_HEIGHT / 2 }, mirrored))
   }
 
@@ -395,26 +435,54 @@ export function Board({
         onPointerCancel={handleStagePointerEnd}
       >
         <div ref={boardRef} className="board" style={boardStyle} onDragOver={handleDragOver} onDrop={handleDrop} aria-label="Table de jeu">
-          {ROW_Y.map((rowY, rowIndex) => (
-            <div
-              key={rowIndex}
-              className={`board-row viewed-row-${viewedRowIndex(rowIndex, mirrored)}`}
-              style={{ top: toCqw(mirrored ? BOARD_HEIGHT - CARD_HEIGHT - rowY : rowY) }}
-            >
-              <span>{rowLabel(rowIndex)}</span>
-            </div>
-          ))}
+          {ROW_Y.map((rowY, rowIndex) => {
+            const viewed = viewedRowIndex(rowIndex, mirrored)
+            if (!isPlayerRow(rowIndex)) {
+              return (
+                <div
+                  key={rowIndex}
+                  className={`board-row viewed-row-${viewed}`}
+                  style={{ top: toCqw(mirrored ? BOARD_HEIGHT - CARD_HEIGHT - rowY : rowY) }}
+                >
+                  <span>{rowLabel(rowIndex)}</span>
+                </div>
+              )
+            }
+
+            const slots = Array.from({ length: PLAYER_ROW_SLOTS }, (_, slot) => toViewRect({ x: playerRowSlotX(slot), y: rowY }, mirrored))
+            const first = slots.reduce((left, slot) => (slot.x < left.x ? slot : left))
+            return (
+              <div key={rowIndex} className={`row-slots viewed-row-${viewed}`}>
+                {slots.map((slot, index) => (
+                  <div
+                    key={index}
+                    className="row-slot"
+                    style={{
+                      left: toCqw(slot.x),
+                      top: toCqw(slot.y),
+                      width: toCqw(CARD_WIDTH * slot.scale),
+                      height: toCqw(CARD_HEIGHT * slot.scale),
+                    }}
+                  />
+                ))}
+                <span className="row-label" style={{ left: toCqw(first.x), top: toCqw(first.y + (CARD_HEIGHT * first.scale) / 2) }}>
+                  {rowLabel(rowIndex)}
+                </span>
+              </div>
+            )
+          })}
 
           {state.piles.map((pile) => {
             const isDragging = dragPreview?.pileId === pile.id
             const model = isDragging ? dragPreview.position : remoteDrags[pile.id] ?? pile
-            const view = mirrorTopLeft(model, mirrored)
+            const view = toViewRect(model, mirrored)
             return (
               <PileView
                 key={pile.id}
                 pile={pile}
                 viewX={view.x}
                 viewY={view.y}
+                scale={view.scale}
                 zIndex={isDragging ? state.topZ + 1 : pile.z}
                 selected={pile.id === selectedPileId}
                 dragging={isDragging}
