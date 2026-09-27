@@ -6,7 +6,11 @@ export const BOARD_HEIGHT = 1400
 export const CARD_WIDTH = 148
 export const CARD_HEIGHT = 220
 export const CARD_TOTAL = 56
-export const MAX_HAND_SIZE = 2
+export const MAX_HAND_SIZE = 3
+
+const STARTING_HAND_SIZE = 2
+const STARTING_MARKET_SIZE = 5
+const STARTING_GAP = 60
 
 const ROW_MARGIN = 28
 const MERGE_DISTANCE = 120
@@ -28,8 +32,6 @@ export const PLAYERS: Record<PlayerId, { label: string; rowIndex: number }> = {
 
 export const PLAYER_IDS: PlayerId[] = ['bottom', 'top']
 
-const INITIAL_DECK: Point = { x: Math.round(BOARD_WIDTH * 0.72 - CARD_WIDTH / 2), y: ROW_Y[1] }
-
 export function createId() {
   return typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
@@ -48,17 +50,45 @@ export function formatCardCount(count: number) {
   return `${count} carte${count > 1 ? 's' : ''}`
 }
 
+function shuffleCards(cards: Card[]) {
+  for (let index = cards.length - 1; index > 0; index -= 1) {
+    const target = Math.floor(Math.random() * (index + 1))
+    ;[cards[index], cards[target]] = [cards[target], cards[index]]
+  }
+}
+
+// Opening layout: shuffled deck, 2 cards per hand, 5 face-up cards in the middle row with the deck at the end.
 export function createInitialState(): GameState {
-  const cards: Card[] = Array.from({ length: CARD_TOTAL }, (_, index) => ({
+  const deck: Card[] = Array.from({ length: CARD_TOTAL }, (_, index) => ({
     id: createId(),
     code: index + 1,
     faceUp: false,
   }))
+  shuffleCards(deck)
+
+  const hands = {
+    bottom: deck.splice(0, STARTING_HAND_SIZE),
+    top: deck.splice(0, STARTING_HAND_SIZE),
+  }
+
+  const slotCount = STARTING_MARKET_SIZE + 1
+  const rowWidth = slotCount * CARD_WIDTH + (slotCount - 1) * STARTING_GAP
+  const startX = Math.round((BOARD_WIDTH - rowWidth) / 2)
+  const slotX = (slot: number) => startX + slot * (CARD_WIDTH + STARTING_GAP)
+
+  const market: Pile[] = deck.splice(0, STARTING_MARKET_SIZE).map((card, slot) => ({
+    id: createId(),
+    x: slotX(slot),
+    y: ROW_Y[1],
+    z: slot + 1,
+    cards: [{ ...card, faceUp: true }],
+  }))
+  const drawPile: Pile = { id: createId(), x: slotX(STARTING_MARKET_SIZE), y: ROW_Y[1], z: slotCount, cards: deck }
 
   return {
-    piles: [{ id: createId(), ...INITIAL_DECK, z: 1, cards }],
-    hands: { top: [], bottom: [] },
-    topZ: 1,
+    piles: [...market, drawPile],
+    hands,
+    topZ: slotCount,
   }
 }
 
@@ -147,7 +177,12 @@ function addPile(state: GameState, cards: Card[], target: Point) {
 
 export function resetGame(state: GameState): ActionResult {
   Object.assign(state, createInitialState())
-  return { ok: true, message: `Nouvelle partie prête : ${CARD_TOTAL} cartes dans le talon.`, selectedPileId: state.piles[0].id }
+  const drawPile = state.piles[state.piles.length - 1]
+  return {
+    ok: true,
+    message: `Nouvelle partie : ${STARTING_HAND_SIZE} cartes par joueur, ${STARTING_MARKET_SIZE} cartes visibles, ${formatCardCount(drawPile.cards.length)} dans le talon.`,
+    selectedPileId: drawPile.id,
+  }
 }
 
 export function drawCard(state: GameState, pileId: string): ActionResult {
@@ -194,12 +229,8 @@ export function shufflePile(state: GameState, pileId: string | null): ActionResu
     return { ok: false, message: 'Le paquet sélectionné doit contenir au moins 2 cartes pour être mélangé.' }
   }
 
-  const { cards } = pile
-  for (let index = cards.length - 1; index > 0; index -= 1) {
-    const target = Math.floor(Math.random() * (index + 1))
-    ;[cards[index], cards[target]] = [cards[target], cards[index]]
-  }
-  return { ok: true, message: `Paquet mélangé (${formatCardCount(cards.length)}).`, selectedPileId: pile.id }
+  shuffleCards(pile.cards)
+  return { ok: true, message: `Paquet mélangé (${formatCardCount(pile.cards.length)}).`, selectedPileId: pile.id }
 }
 
 export function movePile(state: GameState, pileId: string, target: Point): ActionResult {
