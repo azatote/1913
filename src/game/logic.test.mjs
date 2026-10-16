@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   createInitialState,
+  moveCampaignPawn,
   moveObjectiveToHand,
   movePileToHand,
   OBJECTIVE_ROW_INDEX,
@@ -11,6 +12,24 @@ import {
   ROW_Y,
   playerRowSlotX,
 } from './logic.ts'
+
+test('campaign boards keep independent pawns and migrate old shared positions', () => {
+  const state = createInitialState()
+  const defaults = structuredClone(state.campaignPawns)
+
+  assert.deepEqual(moveCampaignPawn(state, 'bottom', 'money', { x: 2, y: -1 }), { ok: true, message: '' })
+  assert.deepEqual(state.campaignPawns.bottom.money, { x: 1, y: 0 })
+  assert.deepEqual(state.campaignPawns.top, defaults.top)
+  assert.deepEqual(parseGameState({ ...state, campaignPawns: undefined }).campaignPawns, defaults)
+  assert.deepEqual(parseGameState(state).campaignPawns, state.campaignPawns)
+
+  const legacyPositions = structuredClone(defaults.bottom)
+  legacyPositions.industry = { x: 0.75, y: 0.4 }
+  assert.deepEqual(parseGameState({ ...state, campaignPawns: legacyPositions }).campaignPawns, {
+    top: legacyPositions,
+    bottom: legacyPositions,
+  })
+})
 
 test('objective hands accept all 36 cards without consuming the standard hand', () => {
   const state = createInitialState()

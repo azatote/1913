@@ -1,4 +1,4 @@
-import type { ActionResult, Card, GameState, ObjectivePile, Pile, PlayerId, Point } from './types'
+import type { ActionResult, CampaignPawnId, Card, GameState, ObjectivePile, Pile, PlayerId, Point } from './types'
 
 // Model coordinates, shared by every client whatever its screen size.
 export const BOARD_WIDTH = 2200
@@ -51,6 +51,53 @@ export const PLAYERS: Record<PlayerId, { label: string; rowIndex: number }> = {
 }
 
 export const PLAYER_IDS: PlayerId[] = ['bottom', 'top']
+
+export const CAMPAIGN_PAWN_IDS: CampaignPawnId[] = ['money', 'population', 'industry', 'factory']
+export const CAMPAIGN_PAWN_STARTS: Record<CampaignPawnId, Point> = {
+  money: { x: 0.222, y: 0.056 },
+  population: { x: 0.222, y: 0.113 },
+  industry: { x: 0.222, y: 0.17 },
+  factory: { x: 0.222, y: 0.227 },
+}
+
+function createCampaignPawnSet() {
+  return Object.fromEntries(CAMPAIGN_PAWN_IDS.map((id) => [id, { ...CAMPAIGN_PAWN_STARTS[id] }])) as Record<CampaignPawnId, Point>
+}
+
+function createCampaignPawnPositions() {
+  return { top: createCampaignPawnSet(), bottom: createCampaignPawnSet() }
+}
+
+function normalizeCampaignPawnSet(value: unknown) {
+  const positions = value && typeof value === 'object' ? value as Partial<Record<CampaignPawnId, Point>> : {}
+  return Object.fromEntries(CAMPAIGN_PAWN_IDS.map((id) => {
+    const position = positions[id]
+    const isValid = position
+      && typeof position.x === 'number'
+      && Number.isFinite(position.x)
+      && typeof position.y === 'number'
+      && Number.isFinite(position.y)
+    return [id, isValid
+      ? { x: Math.max(0, Math.min(1, position.x)), y: Math.max(0, Math.min(1, position.y)) }
+      : { ...CAMPAIGN_PAWN_STARTS[id] }]
+  })) as Record<CampaignPawnId, Point>
+}
+
+function normalizeCampaignPawnPositions(value: unknown) {
+  const positions = value && typeof value === 'object' ? value as Record<string, unknown> : null
+  if (positions && ('top' in positions || 'bottom' in positions)) {
+    return {
+      top: normalizeCampaignPawnSet(positions.top),
+      bottom: normalizeCampaignPawnSet(positions.bottom),
+    }
+  }
+
+  const legacyPositions = normalizeCampaignPawnSet(value)
+  return {
+    top: normalizeCampaignPawnSet(legacyPositions),
+    bottom: normalizeCampaignPawnSet(legacyPositions),
+  }
+}
 
 const PLAYER_ROW_START = Math.round((BOARD_WIDTH - PLAYER_ROW_SLOTS * CARD_WIDTH) / 2)
 
@@ -166,6 +213,7 @@ export function createInitialState(): GameState {
     piles: [...market, drawPile],
     hands,
     objectiveHands: { top: [], bottom: [] },
+    campaignPawns: createCampaignPawnPositions(),
     topZ: slotCount,
     drawPileId: drawPile.id,
     boardLayoutVersion: BOARD_LAYOUT_VERSION,
@@ -226,6 +274,7 @@ export function parseGameState(raw: unknown, legacySeed = ''): GameState | null 
       top: [...(Array.isArray(storedObjectiveHands?.top) ? storedObjectiveHands.top : []), ...legacyTopObjectives],
       bottom: [...(Array.isArray(storedObjectiveHands?.bottom) ? storedObjectiveHands.bottom : []), ...legacyBottomObjectives],
     },
+    campaignPawns: normalizeCampaignPawnPositions(value.campaignPawns),
     boardLayoutVersion: BOARD_LAYOUT_VERSION,
     topZ: typeof value.topZ === 'number' ? value.topZ : 1,
     drawPileId: drawPile?.id ?? legacyDrawPile?.id ?? null,
@@ -388,6 +437,14 @@ export function resetGame(state: GameState): ActionResult {
     message: `Nouvelle partie : ${STARTING_HAND_SIZE} cartes par joueur, ${STARTING_MARKET_SIZE} cartes visibles, ${formatCardCount(drawPile.cards.length)} dans le talon.`,
     selectedPileId: drawPile.id,
   }
+}
+
+export function moveCampaignPawn(state: GameState, playerId: PlayerId, pawnId: CampaignPawnId, position: Point): ActionResult {
+  state.campaignPawns[playerId][pawnId] = {
+    x: Math.max(0, Math.min(1, position.x)),
+    y: Math.max(0, Math.min(1, position.y)),
+  }
+  return { ok: true, message: '' }
 }
 
 export function drawCard(state: GameState, pileId: string): ActionResult {

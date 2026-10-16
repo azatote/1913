@@ -1,4 +1,5 @@
 export type PlayerId = 'top' | 'bottom'
+export type CampaignPawnId = 'money' | 'population' | 'industry' | 'factory'
 
 export type Card = {
   id: string
@@ -26,6 +27,7 @@ export type GameState = {
   piles: Pile[]
   hands: Record<PlayerId, Card[]>
   objectiveHands: Record<PlayerId, Card[]>
+  campaignPawns: Record<PlayerId, Record<CampaignPawnId, Point>>
   boardLayoutVersion: number
   topZ: number
   drawPileId: string | null

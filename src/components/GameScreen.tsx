@@ -11,6 +11,7 @@ import {
   getTopCard,
   isPileFaceUp,
   isPlayerId,
+  moveCampaignPawn,
   moveObjectiveToHand,
   moveObjectiveToPile,
   movePlayerRowGroup,
@@ -24,12 +25,13 @@ import {
   resetGame,
   shufflePile,
 } from '../game/logic'
-import type { ActionResult, Card, GameState, PlayerId, Point } from '../game/types'
+import type { ActionResult, CampaignPawnId, Card, GameState, PlayerId, Point } from '../game/types'
 import { useGame, type PresencePlayer } from '../game/useGame'
 import { errorMessage } from '../lib/errors'
 import { readStored, writeStored } from '../lib/storage'
 import { tabId } from '../lib/tab'
 import { Board } from './Board'
+import { CampaignBoard } from './CampaignBoard'
 import { CardPreview } from './CardPreview'
 import { HandOverlay } from './HandOverlay'
 import { InvitePanel } from './InvitePanel'
@@ -464,6 +466,22 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
                 />
               )}
             </Board>
+            <div className="campaign-boards" aria-label="Plateaux individuels des joueurs">
+              <CampaignBoard
+                playerId={opponentSeat}
+                positions={state.campaignPawns[opponentSeat]}
+                rotated
+                readOnly
+                onMovePawn={() => undefined}
+              />
+              <CampaignBoard
+                playerId={viewerSeat}
+                positions={state.campaignPawns[viewerSeat]}
+                rotated={false}
+                readOnly={!seat}
+                onMovePawn={(pawnId: CampaignPawnId, position) => run((draft) => moveCampaignPawn(draft, viewerSeat, pawnId, position))}
+              />
+            </div>
           </div>
         </main>
       </div>
