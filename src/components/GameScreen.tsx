@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   MAX_HAND_SIZE,
+  OBJECTIVE_ROW_INDEX,
   PLAYER_IDS,
   PLAYERS,
   drawCard,
@@ -15,6 +16,7 @@ import {
   movePlayerRowGroup,
   movePile,
   movePileToHand,
+  nearestRowIndex,
   opponentOf,
   playFromHand,
   playObjectiveFromHand,
@@ -125,6 +127,9 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
   const selectedTopCard = selectedHandObjectiveCard ?? (selectedPile
     ? getTopCard(selectedPile)
     : selectedObjectivePile?.cards.at(-1))
+  const selectedObjectiveRow = selectedPile
+    && selectedTopCard?.kind === 'objective'
+    && Object.values(OBJECTIVE_ROW_INDEX).includes(nearestRowIndex(selectedPile.y))
   const ownHand = seat && state ? state.hands[seat] : []
   const handPreviewCard = handPreviewIndex === null ? undefined : ownHand[handPreviewIndex]
 
@@ -467,7 +472,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
       {previewOpen && selectedTopCard && (
         <CardPreview
           card={selectedTopCard}
-          objectiveUpright={Boolean(selectedHandObjectiveCard)}
+          objectiveUpright={Boolean(selectedHandObjectiveCard || selectedObjectivePile || selectedObjectiveRow)}
           onClose={() => setPreviewOpen(false)}
           actions={selectedHandObjectiveCard && selectedHandObjective?.playerId === seat ? (
             <button type="button" className="primary-button small" onClick={() => playObjectiveCard(selectedHandObjectiveCard.id)}>

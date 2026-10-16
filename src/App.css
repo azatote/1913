@@ -444,25 +444,29 @@ button.objective-river-slot.is-selected { box-shadow: 0 0 0 2px var(--accent); }
 .hand-overlay.is-own .hand-label { margin-bottom: 10px; }
 .hand-overlay.is-opponent { top: 10px; right: 12px; justify-items: end; }
 .hand-overlay.is-opponent .hand-label { order: 2; }
-.hand-overlay.objective-hand-overlay { max-width: 47%; }
+.hand-overlay.objective-hand-overlay { max-width: none; }
 .hand-overlay.objective-hand-overlay.is-own { left: 12px; right: auto; justify-items: start; }
 .hand-overlay.objective-hand-overlay.is-opponent { left: 12px; right: auto; justify-items: start; }
 .objective-hand-overlay .hand-label { max-width: 100px; white-space: normal; text-align: center; }
 .objective-hand-fan {
-  width: 100%;
-  min-width: 0;
-  max-width: 44cqw;
   justify-content: flex-start;
-  overflow-x: auto;
-  overflow-y: clip;
-  padding: calc(var(--hand-card-height) * 0.65) 8px 8px;
-  margin-top: calc(var(--hand-card-height) * -0.65);
-  scrollbar-width: thin;
+  overflow: visible;
 }
-.objective-hand-overlay .hand-card { cursor: pointer; }
+.objective-hand-overlay .hand-card {
+  margin-inline: 0;
+  transform: rotate(calc(var(--i, 0) * 1.25deg));
+  cursor: pointer;
+}
+.objective-hand-overlay .hand-card + .hand-card {
+  margin-inline-start: calc(var(--hand-card-height) * -0.6);
+}
+.objective-hand-overlay .hand-card:hover,
+.objective-hand-overlay .hand-card:focus-visible {
+  transform: translateY(-60%) rotate(0deg) scale(1.06);
+}
 .objective-hand-overlay.is-opponent .hand-card,
 .objective-hand-overlay.is-opponent .hand-card:hover {
-  transform: rotate(calc(var(--i, 0) * 7deg));
+  transform: rotate(calc(var(--i, 0) * 1.25deg));
 }
 .objective-hand-overlay.is-opponent .hand-card:focus-visible {
   transform: translateY(-20%) rotate(0deg);
@@ -691,6 +695,11 @@ button.objective-river-slot.is-selected { box-shadow: 0 0 0 2px var(--accent); }
   width: 67.273%;
   height: 67.273%;
   transform: translate(-50%, -50%) rotate(-90deg);
+}
+.pile.is-objective-row .pile-stack img.is-objective-card {
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -50%);
 }
 
 .pile.is-selected .pile-stack img { outline: 0.2cqw solid var(--accent); outline-offset: 0.08cqw; }

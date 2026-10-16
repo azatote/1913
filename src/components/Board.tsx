@@ -173,6 +173,7 @@ type PileViewProps = PileHandlers & {
   dragging: boolean
   remote: boolean
   opponentRow: boolean
+  objectiveRow: boolean
 }
 
 const PileView = memo(function PileView({
@@ -185,6 +186,7 @@ const PileView = memo(function PileView({
   dragging,
   remote,
   opponentRow,
+  objectiveRow,
   onPointerDown,
   onPointerMove,
   onPointerEnd,
@@ -196,6 +198,7 @@ const PileView = memo(function PileView({
     dragging && 'is-dragging',
     remote && 'is-remote-drag',
     opponentRow && 'is-opponent-row',
+    objectiveRow && 'is-objective-row',
   ].filter(Boolean).join(' ')
 
   return (
@@ -623,6 +626,7 @@ export function Board({
                 dragging={isDragging}
                 remote={!isDragging && pile.id in remoteDrags}
                 opponentRow={viewedRowIndex(nearestRowIndex(model.y), mirrored) === ROW_INDEX.topPlayer}
+                objectiveRow={Object.values(OBJECTIVE_ROW_INDEX).includes(nearestRowIndex(model.y))}
                 onPointerDown={handlePilePointerDown}
                 onPointerMove={handlePilePointerMove}
                 onPointerEnd={handlePilePointerEnd}
