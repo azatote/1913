@@ -2,9 +2,10 @@ import type { ActionResult, Card, GameState, ObjectivePile, Pile, PlayerId, Poin
 
 // Model coordinates, shared by every client whatever its screen size.
 export const BOARD_WIDTH = 2200
-export const BOARD_HEIGHT = 1400
+export const BOARD_HEIGHT = 1720
 export const CARD_WIDTH = 148
 export const CARD_HEIGHT = 220
+export const BOARD_LAYOUT_VERSION = 2
 export const CARD_TOTAL = 56
 export const OBJECTIVE_CARD_TOTAL = 36
 export const OBJECTIVE_MARKET_SIZE = 4
@@ -25,13 +26,28 @@ const PLAY_STEP_X = 42
 
 export const ROW_Y = [
   ROW_MARGIN,
+  350,
   Math.round((BOARD_HEIGHT - CARD_HEIGHT) / 2),
+  1152,
   BOARD_HEIGHT - CARD_HEIGHT - ROW_MARGIN,
 ] as const
 
+export const ROW_INDEX = {
+  topObjectives: 0,
+  topPlayer: 1,
+  center: 2,
+  bottomPlayer: 3,
+  bottomObjectives: 4,
+} as const
+
+export const OBJECTIVE_ROW_INDEX: Record<PlayerId, number> = {
+  top: ROW_INDEX.topObjectives,
+  bottom: ROW_INDEX.bottomObjectives,
+}
+
 export const PLAYERS: Record<PlayerId, { label: string; rowIndex: number }> = {
-  bottom: { label: 'Joueur 1', rowIndex: 2 },
-  top: { label: 'Joueur 2', rowIndex: 0 },
+  bottom: { label: 'Joueur 1', rowIndex: ROW_INDEX.bottomPlayer },
+  top: { label: 'Joueur 2', rowIndex: ROW_INDEX.topPlayer },
 }
 
 export const PLAYER_IDS: PlayerId[] = ['bottom', 'top']
@@ -44,6 +60,10 @@ export function isPlayerRow(rowIndex: number) {
 
 export function playerRowSlotX(slot: number) {
   return PLAYER_ROW_START + slot * CARD_WIDTH
+}
+
+export function objectiveRowY(playerId: PlayerId) {
+  return ROW_Y[OBJECTIVE_ROW_INDEX[playerId]]
 }
 
 function rowOwnerLabel(rowIndex: number) {
@@ -135,11 +155,11 @@ export function createInitialState(): GameState {
   const market: Pile[] = deck.splice(0, STARTING_MARKET_SIZE).map((card, slot) => ({
     id: createId(),
     x: slotX(slot),
-    y: ROW_Y[1],
+    y: ROW_Y[ROW_INDEX.center],
     z: slot + 1,
     cards: [{ ...card, faceUp: true }],
   }))
-  const drawPile: Pile = { id: createId(), x: slotX(STARTING_MARKET_SIZE), y: ROW_Y[1], z: slotCount, cards: deck }
+  const drawPile: Pile = { id: createId(), x: slotX(STARTING_MARKET_SIZE), y: ROW_Y[ROW_INDEX.center], z: slotCount, cards: deck }
   const objectiveRiver = createObjectiveRiver()
 
   return {
@@ -148,6 +168,7 @@ export function createInitialState(): GameState {
     objectiveHands: { top: [], bottom: [] },
     topZ: slotCount,
     drawPileId: drawPile.id,
+    boardLayoutVersion: BOARD_LAYOUT_VERSION,
     ...objectiveRiver,
   }
 }
@@ -159,12 +180,25 @@ export function parseGameState(raw: unknown, legacySeed = ''): GameState | null 
     return null
   }
 
+  const boardLayoutVersion = value.boardLayoutVersion === BOARD_LAYOUT_VERSION ? BOARD_LAYOUT_VERSION : 1
+  const legacyRowPositions: Record<number, number> = {
+    28: ROW_Y[ROW_INDEX.topPlayer],
+    590: ROW_Y[ROW_INDEX.center],
+    1152: ROW_Y[ROW_INDEX.bottomPlayer],
+  }
+  const piles = boardLayoutVersion === BOARD_LAYOUT_VERSION
+    ? value.piles
+    : value.piles.map((pile) => {
+      const y = legacyRowPositions[pile.y] ?? pile.y
+      return y === pile.y ? pile : { ...pile, y }
+    })
+
   const drawPile = typeof value.drawPileId === 'string'
-    ? value.piles.find((pile) => pile.id === value.drawPileId)
+    ? piles.find((pile) => pile.id === value.drawPileId)
     : undefined
-  const legacyDrawPile = value.piles
+  const legacyDrawPile = piles
     .filter((pile) => (
-      nearestRowIndex(pile.y) === 1
+      nearestRowIndex(pile.y) === ROW_INDEX.center
       && Array.isArray(pile.cards)
       && pile.cards.length > 0
       && !isPileFaceUp(pile)
@@ -183,7 +217,7 @@ export function parseGameState(raw: unknown, legacySeed = ''): GameState | null 
   const legacyBottomObjectives = value.hands.bottom.filter((card) => card.kind === 'objective')
 
   return {
-    piles: value.piles,
+    piles,
     hands: {
       top: value.hands.top.filter((card) => card.kind !== 'objective'),
       bottom: value.hands.bottom.filter((card) => card.kind !== 'objective'),
@@ -192,6 +226,7 @@ export function parseGameState(raw: unknown, legacySeed = ''): GameState | null 
       top: [...(Array.isArray(storedObjectiveHands?.top) ? storedObjectiveHands.top : []), ...legacyTopObjectives],
       bottom: [...(Array.isArray(storedObjectiveHands?.bottom) ? storedObjectiveHands.bottom : []), ...legacyBottomObjectives],
     },
+    boardLayoutVersion: BOARD_LAYOUT_VERSION,
     topZ: typeof value.topZ === 'number' ? value.topZ : 1,
     drawPileId: drawPile?.id ?? legacyDrawPile?.id ?? null,
     objectivePiles,
@@ -328,7 +363,7 @@ function replenishCentralSlot(state: GameState, position: Point) {
   state.piles.push({
     id: createId(),
     x: position.x,
-    y: ROW_Y[1],
+    y: ROW_Y[ROW_INDEX.center],
     z: state.topZ,
     cards: [card],
   })
@@ -412,8 +447,8 @@ export function movePile(state: GameState, pileId: string, target: Point, replen
   const centralPosition = replenishCentralMarketSlot
     && pile.id !== state.drawPileId
     && pile.cards.length === 1
-    && nearestRowIndex(pile.y) === 1
-    ? { x: pile.x, y: ROW_Y[1] }
+    && nearestRowIndex(pile.y) === ROW_INDEX.center
+    ? { x: pile.x, y: ROW_Y[ROW_INDEX.center] }
     : null
   const movedDrawPile = pile.id === state.drawPileId
   const position = snapPosition(state, pile, target)
@@ -535,12 +570,17 @@ export function movePileToHand(state: GameState, pileId: string | null, playerId
   if (pile.cards.length > 1) {
     return { ok: false, message: "Impossible d'envoyer plusieurs cartes dans une main en une seule fois." }
   }
+  if (pile.cards[0]?.kind === 'objective') {
+    state.objectiveHands[playerId].push({ ...pile.cards[0], faceUp: true })
+    removePile(state, pile.id)
+    return { ok: true, message: 'Objectif ajouté à la main objectifs.', selectedPileId: null }
+  }
   if (state.hands[playerId].length >= MAX_HAND_SIZE) {
     return { ok: false, message: `Main de ${PLAYERS[playerId].label} pleine : ${MAX_HAND_SIZE} cartes maximum.` }
   }
 
-  const centralPosition = pile.id !== state.drawPileId && nearestRowIndex(pile.y) === 1
-    ? { x: pile.x, y: ROW_Y[1] }
+  const centralPosition = pile.id !== state.drawPileId && nearestRowIndex(pile.y) === ROW_INDEX.center
+    ? { x: pile.x, y: ROW_Y[ROW_INDEX.center] }
     : null
   state.hands[playerId].push(...pile.cards)
   removePile(state, pile.id)
@@ -572,4 +612,16 @@ export function reorderHand(state: GameState, playerId: PlayerId, from: number, 
   const [card] = hand.splice(from, 1)
   hand.splice(to, 0, card)
   return { ok: true, message: `Main de ${PLAYERS[playerId].label} réorganisée.` }
+}
+
+export function playObjectiveFromHand(state: GameState, playerId: PlayerId, cardId: string, target?: Point): ActionResult {
+  const hand = state.objectiveHands[playerId]
+  const index = hand.findIndex((card) => card.id === cardId)
+  const card = hand[index]
+  if (!card) return { ok: false, message: 'Objectif introuvable dans cette main.' }
+  const position = target ?? { x: playerRowSlotX(0), y: objectiveRowY(playerId) }
+  const pile = addPile(state, [{ ...card, faceUp: true }], position)
+  if (!pile) return { ok: false, message: rowRefusal({ id: '', ...position, z: 0, cards: [card] }, position) }
+  hand.splice(index, 1)
+  return { ok: true, message: 'Objectif joué depuis la main.', selectedPileId: pile.id }
 }

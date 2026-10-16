@@ -1,6 +1,6 @@
-import { useEffect, useState, type CSSProperties, type DragEvent } from 'react'
+import { type CSSProperties, type DragEvent } from 'react'
 import { cardImageUrl } from '../game/cards'
-import { OBJECTIVE_MARKET_SIZE } from '../game/logic'
+import { CARD_HEIGHT, CARD_WIDTH, OBJECTIVE_MARKET_SIZE } from '../game/logic'
 import type { ObjectivePile } from '../game/types'
 import { OBJECTIVE_CARD_MIME } from './dnd'
 
@@ -8,21 +8,13 @@ type ObjectiveRiverProps = {
   piles: ObjectivePile[]
   drawPileId: string | null
   selectedPileId: string | null
-  zoom: number
+  boardScale: number
   onSelect: (pileId: string) => void
 }
 
-export function ObjectiveRiver({ piles, drawPileId, selectedPileId, zoom, onSelect }: ObjectiveRiverProps) {
-  const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight)
-
-  useEffect(() => {
-    const updateViewportHeight = () => setViewportHeight(window.innerHeight)
-    window.addEventListener('resize', updateViewportHeight)
-    return () => window.removeEventListener('resize', updateViewportHeight)
-  }, [])
-
-  const cardWidth = Math.min(180, viewportHeight * 0.2) * zoom
-  const cardHeight = cardWidth * (148 / 220)
+export function ObjectiveRiver({ piles, drawPileId, selectedPileId, boardScale, onSelect }: ObjectiveRiverProps) {
+  const cardWidth = CARD_HEIGHT * boardScale
+  const cardHeight = CARD_WIDTH * boardScale
   const riverStyle = {
     '--river-card-height': `${cardHeight}px`,
     '--river-card-width': `${cardWidth}px`,

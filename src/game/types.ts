@@ -26,6 +26,7 @@ export type GameState = {
   piles: Pile[]
   hands: Record<PlayerId, Card[]>
   objectiveHands: Record<PlayerId, Card[]>
+  boardLayoutVersion: number
   topZ: number
   drawPileId: string | null
   objectivePiles: ObjectivePile[]

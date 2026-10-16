@@ -36,6 +36,7 @@ alter table public.nd1913_games add constraint nd1913_games_state_shape_check ch
   ))
   and (not (state ? 'objectivePiles') or jsonb_typeof(state -> 'objectivePiles') = 'array')
   and (not (state ? 'objectiveDrawPileId') or jsonb_typeof(state -> 'objectiveDrawPileId') in ('string', 'null'))
+  and (not (state ? 'boardLayoutVersion') or jsonb_typeof(state -> 'boardLayoutVersion') = 'number')
 );
 
 alter table public.nd1913_games drop constraint if exists nd1913_games_state_size_check;
@@ -75,11 +76,20 @@ begin
       using errcode = '23514';
   end if;
 
-  -- Player rows are at y = 28 (Joueur 2) and y = 1152 (Joueur 1) in model coordinates (see ROW_Y in logic.ts).
-  if (select count(*) from jsonb_array_elements(new.state -> 'piles') as p(pile) where (p.pile ->> 'y')::numeric = 28) > 7
-    or (select count(*) from jsonb_array_elements(new.state -> 'piles') as p(pile) where (p.pile ->> 'y')::numeric = 1152) > 7 then
-    raise exception 'Ligne pleine : 7 cartes maximum par joueur'
-      using errcode = '23514';
+  if coalesce((new.state ->> 'boardLayoutVersion')::numeric, 1) >= 2 then
+    -- Version 2 player rows: y = 350 (Joueur 2) and y = 1152 (Joueur 1).
+    if (select count(*) from jsonb_array_elements(new.state -> 'piles') as p(pile) where (p.pile ->> 'y')::numeric = 350) > 7
+      or (select count(*) from jsonb_array_elements(new.state -> 'piles') as p(pile) where (p.pile ->> 'y')::numeric = 1152) > 7 then
+      raise exception 'Ligne pleine : 7 cartes maximum par joueur'
+        using errcode = '23514';
+    end if;
+  else
+    -- Legacy player rows before the five-row board layout.
+    if (select count(*) from jsonb_array_elements(new.state -> 'piles') as p(pile) where (p.pile ->> 'y')::numeric = 28) > 7
+      or (select count(*) from jsonb_array_elements(new.state -> 'piles') as p(pile) where (p.pile ->> 'y')::numeric = 1152) > 7 then
+      raise exception 'Ligne pleine : 7 cartes maximum par joueur'
+        using errcode = '23514';
+    end if;
   end if;
 
   select coalesce(array_agg((c.card ->> 'code')::integer), '{}')

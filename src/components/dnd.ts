@@ -1,5 +1,6 @@
 export const HAND_CARD_MIME = 'application/x-nd1913-hand-card'
 export const OBJECTIVE_CARD_MIME = 'application/x-nd1913-objective-card'
+export const OBJECTIVE_HAND_MIME = 'application/x-nd1913-objective-hand'
 
 export function readHandCardIndex(dataTransfer: DataTransfer) {
   const raw = dataTransfer.getData(HAND_CARD_MIME)

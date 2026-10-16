@@ -16,10 +16,12 @@ import {
   BOARD_WIDTH,
   CARD_HEIGHT,
   CARD_WIDTH,
+  OBJECTIVE_ROW_INDEX,
   OWN_ROW_SCALE,
   PLAYER_IDS,
   PLAYER_ROW_SLOTS,
   PLAYERS,
+  ROW_INDEX,
   ROW_Y,
   formatCardCount,
   getTopCard,
@@ -34,7 +36,7 @@ import {
   viewedRowIndex,
 } from '../game/logic'
 import type { GameState, Pile, PlayerId, Point } from '../game/types'
-import { isHandCardDrag, isObjectiveCardDrag, readHandCardIndex, readObjectivePileId } from './dnd'
+import { isHandCardDrag, isObjectiveCardDrag, OBJECTIVE_HAND_MIME, readHandCardIndex, readObjectivePileId } from './dnd'
 
 const DRAG_THRESHOLD_PX = 6
 const DOUBLE_TAP_MS = 350
@@ -51,7 +53,6 @@ type BoardProps = {
   selectedPileId: string | null
   remoteDrags: Record<string, Point>
   canPlayFromHand: boolean
-  onZoomChange: (zoom: number) => void
   onSelect: (pileId: string) => void
   onPileActivate: (pileId: string) => void
   onPileDrop: (pileId: string, position: Point) => void
@@ -59,6 +60,8 @@ type BoardProps = {
   onMovePlayerRow: (playerId: PlayerId, slots: number) => void
   onPileToHand: (pileId: string, playerId: PlayerId) => void
   onPlayFromHand: (index: number, position: Point) => void
+  onPlayObjectiveFromHand: (cardId: string, position: Point) => void
+  onBoardScaleChange: (scale: number) => void
   onDragMove: (pileId: string, position: Point) => void
   onDragEnd: (pileId: string) => void
   hasOwnHand: boolean
@@ -113,7 +116,7 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(value, max))
 }
 
-const OWN_ROW_BOTTOM = ROW_Y[2] + CARD_HEIGHT
+const OWN_ROW_BOTTOM = ROW_Y[PLAYERS.bottom.rowIndex] + CARD_HEIGHT
 const OWN_ROW_TOP = OWN_ROW_BOTTOM - CARD_HEIGHT * OWN_ROW_SCALE
 
 type ViewRect = Point & { scale: number }
@@ -121,7 +124,7 @@ type ViewRect = Point & { scale: number }
 // The row viewed at the bottom (the viewer's own row) is enlarged around the board center and its bottom edge.
 function toViewRect(model: Point, mirrored: boolean): ViewRect {
   const view = mirrorTopLeft(model, mirrored)
-  if (viewedRowIndex(nearestRowIndex(model.y), mirrored) !== 2) return { ...view, scale: 1 }
+  if (viewedRowIndex(nearestRowIndex(model.y), mirrored) !== ROW_INDEX.bottomPlayer) return { ...view, scale: 1 }
   const centerX = BOARD_WIDTH / 2
   return {
     x: centerX + (view.x - centerX) * OWN_ROW_SCALE,
@@ -142,7 +145,9 @@ function unscaleViewPoint(point: Point): Point {
 
 function rowLabel(rowIndex: number) {
   const owner = PLAYER_IDS.find((playerId) => PLAYERS[playerId].rowIndex === rowIndex)
-  return owner ? `Ligne de ${PLAYERS[owner].label}` : 'Zone centrale'
+  if (owner) return `Ligne de ${PLAYERS[owner].label}`
+  const objectiveOwner = PLAYER_IDS.find((playerId) => OBJECTIVE_ROW_INDEX[playerId] === rowIndex)
+  return objectiveOwner ? `Objectifs de ${PLAYERS[objectiveOwner].label}` : 'Zone centrale'
 }
 
 function handPlayerAt(clientX: number, clientY: number): PlayerId | null {
@@ -227,7 +232,6 @@ export function Board({
   selectedPileId,
   remoteDrags,
   canPlayFromHand,
-  onZoomChange,
   onSelect,
   onPileActivate,
   onPileDrop,
@@ -235,6 +239,8 @@ export function Board({
   onMovePlayerRow,
   onPileToHand,
   onPlayFromHand,
+  onPlayObjectiveFromHand,
+  onBoardScaleChange,
   onDragMove,
   onDragEnd,
   hasOwnHand,
@@ -253,7 +259,16 @@ export function Board({
   const [zoom, setZoom] = useState(1)
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null)
 
-  useEffect(() => onZoomChange(zoom), [onZoomChange, zoom])
+  useLayoutEffect(() => {
+    const board = boardRef.current
+    if (!board) return
+
+    const reportScale = () => onBoardScaleChange(board.getBoundingClientRect().width / BOARD_WIDTH)
+    const observer = new ResizeObserver(reportScale)
+    observer.observe(board)
+    reportScale()
+    return () => observer.disconnect()
+  }, [onBoardScaleChange])
 
   // Lets the memoized pile handlers read the latest props without being recreated.
   const latestRef = useRef({ state, mirrored, onSelect, onPileActivate, onPileDrop, onMoveObjectiveCard, onMovePlayerRow, onPileToHand, onDragMove, onDragEnd })
@@ -512,20 +527,22 @@ export function Board({
   }
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
-    const handCard = canPlayFromHand && isHandCardDrag(event.dataTransfer)
+    const handCard = canPlayFromHand && (isHandCardDrag(event.dataTransfer) || event.dataTransfer.types.includes(OBJECTIVE_HAND_MIME))
     if (!handCard && !isObjectiveCardDrag(event.dataTransfer)) return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
   }
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    const handObjectiveId = event.dataTransfer.getData(OBJECTIVE_HAND_MIME)
     const objectivePileId = readObjectivePileId(event.dataTransfer)
     const index = readHandCardIndex(event.dataTransfer)
-    if (!objectivePileId && (!canPlayFromHand || index === null)) return
+    if (!objectivePileId && (!canPlayFromHand || (!handObjectiveId && index === null))) return
     event.preventDefault()
     const pointer = unscaleViewPoint(pointerToView(event.clientX, event.clientY))
     const position = mirrorTopLeft({ x: pointer.x - CARD_WIDTH / 2, y: pointer.y - CARD_HEIGHT / 2 }, mirrored)
-    if (objectivePileId) latestRef.current.onMoveObjectiveCard(objectivePileId, position)
+    if (handObjectiveId) onPlayObjectiveFromHand(handObjectiveId, position)
+    else if (objectivePileId) latestRef.current.onMoveObjectiveCard(objectivePileId, position)
     else if (index !== null) onPlayFromHand(index, position)
   }
 
@@ -605,7 +622,7 @@ export function Board({
                 selected={pile.id === selectedPileId}
                 dragging={isDragging}
                 remote={!isDragging && pile.id in remoteDrags}
-                opponentRow={viewedRowIndex(nearestRowIndex(model.y), mirrored) === 0}
+                opponentRow={viewedRowIndex(nearestRowIndex(model.y), mirrored) === ROW_INDEX.topPlayer}
                 onPointerDown={handlePilePointerDown}
                 onPointerMove={handlePilePointerMove}
                 onPointerEnd={handlePilePointerEnd}

@@ -17,11 +17,12 @@ import {
   movePileToHand,
   opponentOf,
   playFromHand,
+  playObjectiveFromHand,
   reorderHand,
   resetGame,
   shufflePile,
 } from '../game/logic'
-import type { ActionResult, GameState, PlayerId, Point } from '../game/types'
+import type { ActionResult, Card, GameState, PlayerId, Point } from '../game/types'
 import { useGame, type PresencePlayer } from '../game/useGame'
 import { errorMessage } from '../lib/errors'
 import { readStored, writeStored } from '../lib/storage'
@@ -106,7 +107,8 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
 
   const [selectedPileId, setSelectedPileId] = useState<string | null>(null)
   const [selectedObjectivePileId, setSelectedObjectivePileId] = useState<string | null>(null)
-  const [tableZoom, setTableZoom] = useState(1)
+  const [selectedHandObjective, setSelectedHandObjective] = useState<{ playerId: PlayerId; cardId: string } | null>(null)
+  const [boardScale, setBoardScale] = useState(0)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [handPreviewIndex, setHandPreviewIndex] = useState<number | null>(null)
   const [hideOpponentHand, setHideOpponentHand] = useState(() => readStored('local', HIDE_OPPONENT_KEY) === '1')
@@ -117,9 +119,12 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
   const opponentSeat = opponentOf(viewerSeat)
   const selectedPile = state ? findPile(state, selectedPileId) : undefined
   const selectedObjectivePile = state?.objectivePiles.find((pile) => pile.id === selectedObjectivePileId)
-  const selectedTopCard = selectedPile
+  const selectedHandObjectiveCard = selectedHandObjective
+    ? state?.objectiveHands[selectedHandObjective.playerId].find((card) => card.id === selectedHandObjective.cardId)
+    : undefined
+  const selectedTopCard = selectedHandObjectiveCard ?? (selectedPile
     ? getTopCard(selectedPile)
-    : selectedObjectivePile?.cards.at(-1)
+    : selectedObjectivePile?.cards.at(-1))
   const ownHand = seat && state ? state.hands[seat] : []
   const handPreviewCard = handPreviewIndex === null ? undefined : ownHand[handPreviewIndex]
 
@@ -176,6 +181,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
   }
 
   const selectPile = (pileId: string) => {
+    setSelectedHandObjective(null)
     setSelectedPileId(pileId)
     setSelectedObjectivePileId(null)
     const pile = state && findPile(state, pileId)
@@ -183,6 +189,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
   }
 
   const selectObjectivePile = (pileId: string) => {
+    setSelectedHandObjective(null)
     setSelectedPileId(null)
     setSelectedObjectivePileId(pileId)
     const pile = state?.objectivePiles.find((entry) => entry.id === pileId)
@@ -191,9 +198,33 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
     else if (card) setMessage(`Objectif ${card.code} sélectionné.`)
   }
 
+  const selectObjectiveInHand = (playerId: PlayerId, card: Card) => {
+    setSelectedPileId(null)
+    setSelectedObjectivePileId(null)
+    setSelectedHandObjective({ playerId, cardId: card.id })
+  }
+
+  const objectiveHandProps = (playerId: PlayerId) => ({
+    onSelect: (card: Card) => selectObjectiveInHand(playerId, card),
+    onPreview: (card: Card) => {
+      selectObjectiveInHand(playerId, card)
+      setPreviewOpen(true)
+    },
+    onTakeObjective: takeObjectiveToHand,
+  })
+
   const playCard = (index: number, position?: Point) => {
     if (!seat) return
     run((draft) => playFromHand(draft, seat, index, position))
+  }
+
+  const playObjectiveCard = (cardId: string, position?: Point) => {
+    if (!seat) return
+    const result = run((draft) => playObjectiveFromHand(draft, seat, cardId, position))
+    if (result.ok) {
+      setSelectedHandObjective(null)
+      setPreviewOpen(false)
+    }
   }
 
   const toggleOpponentHand = () => {
@@ -376,7 +407,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
               piles={state.objectivePiles}
               drawPileId={state.objectiveDrawPileId}
               selectedPileId={selectedObjectivePileId}
-              zoom={tableZoom}
+              boardScale={boardScale}
               onSelect={selectObjectivePile}
             />
             <Board
@@ -385,7 +416,6 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
               selectedPileId={selectedPileId}
               remoteDrags={remoteDrags}
               canPlayFromHand={Boolean(seat)}
-              onZoomChange={setTableZoom}
               onSelect={selectPile}
               onPileActivate={handlePileActivate}
               onPileDrop={(pileId, position) => run((draft) => movePile(draft, pileId, position))}
@@ -393,18 +423,20 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
               onMovePlayerRow={(playerId, slots) => run((draft) => movePlayerRowGroup(draft, playerId, slots))}
               onPileToHand={(pileId, playerId) => run((draft) => movePileToHand(draft, pileId, playerId))}
               onPlayFromHand={playCard}
+              onPlayObjectiveFromHand={playObjectiveCard}
+              onBoardScaleChange={setBoardScale}
               onDragMove={broadcastDrag}
               onDragEnd={broadcastDragEnd}
               hasOwnHand={Boolean(seat)}
             >
               {seat && !hideOwnObjectiveHand && (
-                <ObjectiveHandOverlay playerId={seat} cards={state.objectiveHands[seat]} isOwn />
+                <ObjectiveHandOverlay playerId={seat} cards={state.objectiveHands[seat]} isOwn {...objectiveHandProps(seat)} />
               )}
               {seat && !hideOpponentHand && (
-                <ObjectiveHandOverlay playerId={opponentSeat} cards={state.objectiveHands[opponentSeat]} isOwn={false} />
+                <ObjectiveHandOverlay playerId={opponentSeat} cards={state.objectiveHands[opponentSeat]} isOwn={false} {...objectiveHandProps(opponentSeat)} />
               )}
               {!seat && !hideOpponentHand && PLAYER_IDS.map((playerId) => (
-                <ObjectiveHandOverlay key={playerId} playerId={playerId} cards={state.objectiveHands[playerId]} isOwn={false} />
+                <ObjectiveHandOverlay key={playerId} playerId={playerId} cards={state.objectiveHands[playerId]} isOwn={false} {...objectiveHandProps(playerId)} />
               ))}
               {!hideOpponentHand && (
                 <HandOverlay
@@ -432,7 +464,18 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
       </div>
 
       {!seat && <SeatChooser owners={owners} tabId={tabId} onChoose={chooseSeat} />}
-      {previewOpen && selectedTopCard && <CardPreview card={selectedTopCard} onClose={() => setPreviewOpen(false)} />}
+      {previewOpen && selectedTopCard && (
+        <CardPreview
+          card={selectedTopCard}
+          objectiveUpright={Boolean(selectedHandObjectiveCard)}
+          onClose={() => setPreviewOpen(false)}
+          actions={selectedHandObjectiveCard && selectedHandObjective?.playerId === seat ? (
+            <button type="button" className="primary-button small" onClick={() => playObjectiveCard(selectedHandObjectiveCard.id)}>
+              Jouer sur la table
+            </button>
+          ) : undefined}
+        />
+      )}
       {handPreviewIndex !== null && handPreviewCard && (
         <CardPreview
           card={{ ...handPreviewCard, faceUp: true }}
