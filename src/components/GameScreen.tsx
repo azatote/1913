@@ -10,6 +10,7 @@ import {
   getTopCard,
   isPileFaceUp,
   isPlayerId,
+  movePlayerRowGroup,
   movePile,
   movePileToHand,
   opponentOf,
@@ -309,6 +310,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
             <p>Double-clic sur une carte visible : la retourner</p>
             <p>Glisser-déposer : déplacer, ou fusionner sur un autre paquet</p>
             <p>Ligne d'un joueur : 7 cartes max, une par emplacement, aimantées bord à bord</p>
+            <p>Maintenir Espace pendant le déplacement d'une carte de la ligne : déplacer toute la ligne</p>
             <p>Main ({MAX_HAND_SIZE} cartes max) : clic pour agrandir, glisser sur la table pour jouer</p>
             <p>Molette, pincement ou <kbd>+</kbd> <kbd>−</kbd> : zoom · <kbd>0</kbd> : ajuster</p>
             <p>Glisser le fond de la table : déplacer la vue</p>
@@ -332,6 +334,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
             onSelect={selectPile}
             onPileActivate={handlePileActivate}
             onPileDrop={(pileId, position) => run((draft) => movePile(draft, pileId, position))}
+            onMovePlayerRow={(playerId, slots) => run((draft) => movePlayerRowGroup(draft, playerId, slots))}
             onPileToHand={(pileId, playerId) => run((draft) => movePileToHand(draft, pileId, playerId))}
             onPlayFromHand={playCard}
             onDragMove={broadcastDrag}

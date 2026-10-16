@@ -162,6 +162,10 @@ function slotOf(x: number) {
   return clamp(Math.round((x - PLAYER_ROW_START) / CARD_WIDTH), 0, PLAYER_ROW_SLOTS - 1)
 }
 
+export function playerRowSlotIndex(x: number) {
+  return slotOf(x)
+}
+
 // Player rows: single cards magnetized edge to edge on 7 fixed slots; null when no slot is available.
 function snapToPlayerRow(state: GameState, pile: Pile, rowIndex: number, x: number): Point | null {
   if (pile.cards.length > 1) return null
@@ -305,6 +309,44 @@ export function movePile(state: GameState, pileId: string, target: Point): Actio
     ok: true,
     message: `Paquets fusionnés : ${formatCardCount(mergeTarget.cards.length)}.`,
     selectedPileId: mergeTarget.id,
+  }
+}
+
+export function playerRowPiles(state: GameState, playerId: PlayerId) {
+  const rowIndex = PLAYERS[playerId].rowIndex
+  return state.piles.filter((pile) => nearestRowIndex(pile.y) === rowIndex)
+}
+
+export function clampPlayerRowShift(state: GameState, playerId: PlayerId, requestedSlots: number) {
+  const piles = playerRowPiles(state, playerId)
+  if (piles.length === 0) return 0
+
+  const slots = piles.map((pile) => slotOf(pile.x))
+  const minShift = -Math.min(...slots)
+  const maxShift = PLAYER_ROW_SLOTS - 1 - Math.max(...slots)
+  return clamp(Math.round(requestedSlots), minShift, maxShift)
+}
+
+export function movePlayerRowGroup(state: GameState, playerId: PlayerId, requestedSlots: number): ActionResult {
+  const piles = playerRowPiles(state, playerId)
+  const shift = clampPlayerRowShift(state, playerId, requestedSlots)
+  if (shift === 0) {
+    return { ok: false, message: 'La ligne ne peut pas être déplacée davantage dans cette direction.' }
+  }
+
+  piles
+    .slice()
+    .sort((left, right) => left.z - right.z)
+    .forEach((pile, index) => {
+      pile.x = playerRowSlotX(slotOf(pile.x) + shift)
+      pile.y = ROW_Y[PLAYERS[playerId].rowIndex]
+      pile.z = state.topZ + index + 1
+    })
+  state.topZ += piles.length
+
+  return {
+    ok: true,
+    message: `Ligne de ${PLAYERS[playerId].label} déplacée de ${Math.abs(shift)} emplacement${Math.abs(shift) > 1 ? 's' : ''}.`,
   }
 }
 

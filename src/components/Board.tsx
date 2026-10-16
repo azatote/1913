@@ -27,6 +27,8 @@ import {
   isPlayerRow,
   mirrorTopLeft,
   nearestRowIndex,
+  clampPlayerRowShift,
+  playerRowSlotIndex,
   playerRowSlotX,
   snapPosition,
   viewedRowIndex,
@@ -52,6 +54,7 @@ type BoardProps = {
   onSelect: (pileId: string) => void
   onPileActivate: (pileId: string) => void
   onPileDrop: (pileId: string, position: Point) => void
+  onMovePlayerRow: (playerId: PlayerId, slots: number) => void
   onPileToHand: (pileId: string, playerId: PlayerId) => void
   onPlayFromHand: (index: number, position: Point) => void
   onDragMove: (pileId: string, position: Point) => void
@@ -68,6 +71,16 @@ type DragSession = {
   grab: Point
   moved: boolean
   position: Point
+  pointerPosition: Point
+  groupStartPointer: Point | null
+  groupPlayerId: PlayerId | null
+}
+
+type DragPreview = {
+  pileId: string
+  position: Point
+  groupPlayerId?: PlayerId
+  groupShift?: number
 }
 
 type ZoomAnchor = { fx: number; fy: number; clientX: number; clientY: number }
@@ -196,6 +209,7 @@ export function Board({
   onSelect,
   onPileActivate,
   onPileDrop,
+  onMovePlayerRow,
   onPileToHand,
   onPlayFromHand,
   onDragMove,
@@ -206,19 +220,42 @@ export function Board({
   const scrollerRef = useRef<HTMLDivElement>(null)
   const boardRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<DragSession | null>(null)
+  const groupDragRef = useRef<{ playerId: PlayerId; slots: number } | null>(null)
   const lastTapRef = useRef<{ pileId: string; time: number } | null>(null)
   const zoomRef = useRef(1)
   const anchorRef = useRef<ZoomAnchor | null>(null)
   const pointersRef = useRef(new Map<number, Point>())
   const pinchRef = useRef<{ distance: number; zoom: number } | null>(null)
   const [zoom, setZoom] = useState(1)
-  const [dragPreview, setDragPreview] = useState<{ pileId: string; position: Point } | null>(null)
+  const [dragPreview, setDragPreview] = useState<DragPreview | null>(null)
 
   // Lets the memoized pile handlers read the latest props without being recreated.
-  const latestRef = useRef({ state, mirrored, onSelect, onPileActivate, onPileDrop, onPileToHand, onDragMove, onDragEnd })
+  const latestRef = useRef({ state, mirrored, onSelect, onPileActivate, onPileDrop, onMovePlayerRow, onPileToHand, onDragMove, onDragEnd })
   useLayoutEffect(() => {
-    latestRef.current = { state, mirrored, onSelect, onPileActivate, onPileDrop, onPileToHand, onDragMove, onDragEnd }
+    latestRef.current = { state, mirrored, onSelect, onPileActivate, onPileDrop, onMovePlayerRow, onPileToHand, onDragMove, onDragEnd }
   })
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== 'Space' || event.repeat || !dragRef.current) return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+
+      const drag = dragRef.current
+      const { state: current } = latestRef.current
+      const pile = current.piles.find((entry) => entry.id === drag.pileId)
+      const rowIndex = pile ? nearestRowIndex(pile.y) : -1
+      const playerId = PLAYER_IDS.find((id) => PLAYERS[id].rowIndex === rowIndex)
+      if (!playerId) return
+
+      drag.groupPlayerId = playerId
+      drag.groupStartPointer = drag.pointerPosition
+      groupDragRef.current = { playerId, slots: 0 }
+    }
+
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [])
 
   const pointerToView = useCallback((clientX: number, clientY: number): Point => {
     const rect = boardRef.current?.getBoundingClientRect()
@@ -303,6 +340,7 @@ export function Board({
     event.currentTarget.setPointerCapture(event.pointerId)
     const pointer = pointerToView(event.clientX, event.clientY)
     const rect = toViewRect(pile, isMirrored)
+    groupDragRef.current = null
     dragRef.current = {
       pileId,
       pointerId: event.pointerId,
@@ -315,6 +353,9 @@ export function Board({
       },
       moved: false,
       position: { x: pile.x, y: pile.y },
+      pointerPosition: mirrorTopLeft(unscaleViewPoint(pointer), isMirrored),
+      groupStartPointer: null,
+      groupPlayerId: null,
     }
     select(pileId)
   }, [pointerToView])
@@ -330,6 +371,18 @@ export function Board({
     drag.moved = true
     scrollNearEdge(event.clientX, event.clientY)
     const pointer = unscaleViewPoint(pointerToView(event.clientX, event.clientY))
+    const modelPointer = mirrorTopLeft(pointer, isMirrored)
+    drag.pointerPosition = modelPointer
+    if (drag.groupPlayerId && drag.groupStartPointer) {
+      const requestedSlots = Math.round((modelPointer.x - drag.groupStartPointer.x) / CARD_WIDTH)
+      const slots = clampPlayerRowShift(current, drag.groupPlayerId, requestedSlots)
+      drag.position = { x: pile.x + slots * CARD_WIDTH, y: pile.y }
+      groupDragRef.current = { playerId: drag.groupPlayerId, slots }
+      setDragPreview({ pileId, position: drag.position, groupPlayerId: drag.groupPlayerId, groupShift: slots })
+      notify(pileId, drag.position)
+      return
+    }
+
     const model = mirrorTopLeft({ x: pointer.x - drag.grab.x * CARD_WIDTH, y: pointer.y - drag.grab.y * CARD_HEIGHT }, isMirrored)
     drag.position = snapPosition(current, pile, model) ?? {
       x: clamp(model.x, 0, BOARD_WIDTH - CARD_WIDTH),
@@ -344,10 +397,11 @@ export function Board({
     if (!drag || drag.pointerId !== event.pointerId) return
     dragRef.current = null
     setDragPreview(null)
-    const { onPileActivate: activate, onDragEnd: end, onPileToHand: toHand, onPileDrop: drop } = latestRef.current
+    const { onPileActivate: activate, onDragEnd: end, onPileToHand: toHand, onPileDrop: drop, onMovePlayerRow } = latestRef.current
 
     // A simple click only selects (done on pointer down); a double click/tap draws or flips.
     if (!drag.moved) {
+      groupDragRef.current = null
       if (cancelled) return
       const lastTap = lastTapRef.current
       if (lastTap && lastTap.pileId === drag.pileId && event.timeStamp - lastTap.time < DOUBLE_TAP_MS) {
@@ -361,7 +415,15 @@ export function Board({
 
     lastTapRef.current = null
     end(drag.pileId)
-    if (cancelled) return
+    if (cancelled) {
+      groupDragRef.current = null
+      return
+    }
+    if (groupDragRef.current) {
+      onMovePlayerRow(groupDragRef.current.playerId, groupDragRef.current.slots)
+      groupDragRef.current = null
+      return
+    }
     const handPlayer = handPlayerAt(event.clientX, event.clientY)
     if (handPlayer) toHand(drag.pileId, handPlayer)
     else drop(drag.pileId, drag.position)
@@ -474,7 +536,13 @@ export function Board({
 
           {state.piles.map((pile) => {
             const isDragging = dragPreview?.pileId === pile.id
-            const model = isDragging ? dragPreview.position : remoteDrags[pile.id] ?? pile
+            const rowPlayer = PLAYER_IDS.find((id) => PLAYERS[id].rowIndex === nearestRowIndex(pile.y))
+            const groupShift = dragPreview && dragPreview.groupPlayerId === rowPlayer ? dragPreview.groupShift ?? 0 : 0
+            const model = isDragging
+              ? dragPreview.position
+              : groupShift !== 0
+                ? { x: playerRowSlotX(playerRowSlotIndex(pile.x) + groupShift), y: pile.y }
+                : remoteDrags[pile.id] ?? pile
             const view = toViewRect(model, mirrored)
             return (
               <PileView
