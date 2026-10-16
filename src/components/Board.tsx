@@ -254,6 +254,10 @@ export function Board({
       if (target?.closest('button, input, textarea, select, [contenteditable="true"]')) return
       spaceHeldRef.current = true
       event.preventDefault()
+      if (event.repeat) {
+        if (dragRef.current) event.stopImmediatePropagation()
+        return
+      }
       if (!dragRef.current) return
       event.stopImmediatePropagation()
 
