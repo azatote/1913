@@ -53,7 +53,6 @@ export function ObjectiveRiver({ piles, drawPileId, selectedPileId, onSelect }: 
           )
         })}
       </div>
-      <p className="objective-river-hint">Glissez un objectif vers la table ou votre main</p>
     </section>
   )
 }
