@@ -187,7 +187,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
       const target = event.target instanceof HTMLElement ? event.target : null
       if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
 
-      if (event.code === 'Space') {
+      if (event.key.toLowerCase() === 'p') {
         if (target?.closest('button')) return
         event.preventDefault()
         if (previewOpen) setPreviewOpen(false)
@@ -274,7 +274,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
             <button type="button" className="action-button" onClick={drawSelected}>Piocher une carte <kbd>D</kbd></button>
             <button type="button" className="action-button" onClick={flipSelected}>Retourner le dessus <kbd>F</kbd></button>
             <button type="button" className="action-button" onClick={() => run((draft) => shufflePile(draft, selectedPileId))}>Mélanger la pile</button>
-            <button type="button" className="action-button" onClick={() => setPreviewOpen(true)} disabled={!selectedTopCard}>Agrandir la carte <kbd>Espace</kbd></button>
+            <button type="button" className="action-button" onClick={() => setPreviewOpen(true)} disabled={!selectedTopCard}>Agrandir la carte <kbd>P</kbd></button>
           </section>
 
           <section className="panel">

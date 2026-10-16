@@ -76,6 +76,17 @@ type DragSession = {
   groupPlayerId: PlayerId | null
 }
 
+function beginPlayerRowGroupDrag(drag: DragSession, state: GameState): PlayerId | null {
+  const pile = state.piles.find((entry) => entry.id === drag.pileId)
+  const rowIndex = pile ? nearestRowIndex(pile.y) : -1
+  const playerId = PLAYER_IDS.find((id) => PLAYERS[id].rowIndex === rowIndex)
+  if (!playerId) return null
+
+  drag.groupPlayerId = playerId
+  drag.groupStartPointer = drag.pointerPosition
+  return playerId
+}
+
 type DragPreview = {
   pileId: string
   position: Point
@@ -221,6 +232,7 @@ export function Board({
   const boardRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<DragSession | null>(null)
   const groupDragRef = useRef<{ playerId: PlayerId; slots: number } | null>(null)
+  const spaceHeldRef = useRef(false)
   const lastTapRef = useRef<{ pileId: string; time: number } | null>(null)
   const zoomRef = useRef(1)
   const anchorRef = useRef<ZoomAnchor | null>(null)
@@ -237,24 +249,34 @@ export function Board({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== 'Space' || event.repeat || !dragRef.current) return
+      if (event.code !== 'Space') return
+      const target = event.target instanceof HTMLElement ? event.target : null
+      if (target?.closest('button, input, textarea, select, [contenteditable="true"]')) return
+      spaceHeldRef.current = true
       event.preventDefault()
+      if (!dragRef.current) return
       event.stopImmediatePropagation()
 
-      const drag = dragRef.current
-      const { state: current } = latestRef.current
-      const pile = current.piles.find((entry) => entry.id === drag.pileId)
-      const rowIndex = pile ? nearestRowIndex(pile.y) : -1
-      const playerId = PLAYER_IDS.find((id) => PLAYERS[id].rowIndex === rowIndex)
-      if (!playerId) return
+      const playerId = beginPlayerRowGroupDrag(dragRef.current, latestRef.current.state)
+      if (playerId) groupDragRef.current = { playerId, slots: 0 }
+    }
 
-      drag.groupPlayerId = playerId
-      drag.groupStartPointer = drag.pointerPosition
-      groupDragRef.current = { playerId, slots: 0 }
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.code !== 'Space' || !spaceHeldRef.current) return
+      spaceHeldRef.current = false
+      event.preventDefault()
+      if (dragRef.current) event.stopImmediatePropagation()
     }
 
     window.addEventListener('keydown', onKeyDown, true)
-    return () => window.removeEventListener('keydown', onKeyDown, true)
+    window.addEventListener('keyup', onKeyUp, true)
+    const onBlur = () => { spaceHeldRef.current = false }
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true)
+      window.removeEventListener('keyup', onKeyUp, true)
+      window.removeEventListener('blur', onBlur)
+    }
   }, [])
 
   const pointerToView = useCallback((clientX: number, clientY: number): Point => {
@@ -341,7 +363,7 @@ export function Board({
     const pointer = pointerToView(event.clientX, event.clientY)
     const rect = toViewRect(pile, isMirrored)
     groupDragRef.current = null
-    dragRef.current = {
+    const drag: DragSession = {
       pileId,
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -356,6 +378,11 @@ export function Board({
       pointerPosition: mirrorTopLeft(unscaleViewPoint(pointer), isMirrored),
       groupStartPointer: null,
       groupPlayerId: null,
+    }
+    dragRef.current = drag
+    if (spaceHeldRef.current) {
+      const playerId = beginPlayerRowGroupDrag(drag, current)
+      if (playerId) groupDragRef.current = { playerId, slots: 0 }
     }
     select(pileId)
   }, [pointerToView])
