@@ -104,6 +104,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
 
   const [selectedPileId, setSelectedPileId] = useState<string | null>(null)
   const [selectedObjectivePileId, setSelectedObjectivePileId] = useState<string | null>(null)
+  const [tableZoom, setTableZoom] = useState(1)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [handPreviewIndex, setHandPreviewIndex] = useState<number | null>(null)
   const [hideOpponentHand, setHideOpponentHand] = useState(() => readStored('local', HIDE_OPPONENT_KEY) === '1')
@@ -221,7 +222,6 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
       if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
 
       if (event.key.toLowerCase() === 'p') {
-        if (target?.closest('button')) return
         event.preventDefault()
         if (previewOpen) setPreviewOpen(false)
         else if (selectedTopCard) setPreviewOpen(true)
@@ -364,6 +364,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
               piles={state.objectivePiles}
               drawPileId={state.objectiveDrawPileId}
               selectedPileId={selectedObjectivePileId}
+              zoom={tableZoom}
               onSelect={selectObjectivePile}
             />
             <Board
@@ -372,6 +373,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
               selectedPileId={selectedPileId}
               remoteDrags={remoteDrags}
               canPlayFromHand={Boolean(seat)}
+              onZoomChange={setTableZoom}
               onSelect={selectPile}
               onPileActivate={handlePileActivate}
               onPileDrop={(pileId, position) => run((draft) => movePile(draft, pileId, position))}

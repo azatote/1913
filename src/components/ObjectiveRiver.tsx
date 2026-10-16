@@ -1,4 +1,4 @@
-import type { DragEvent } from 'react'
+import { useEffect, useState, type CSSProperties, type DragEvent } from 'react'
 import { cardImageUrl } from '../game/cards'
 import { OBJECTIVE_MARKET_SIZE } from '../game/logic'
 import type { ObjectivePile } from '../game/types'
@@ -8,10 +8,25 @@ type ObjectiveRiverProps = {
   piles: ObjectivePile[]
   drawPileId: string | null
   selectedPileId: string | null
+  zoom: number
   onSelect: (pileId: string) => void
 }
 
-export function ObjectiveRiver({ piles, drawPileId, selectedPileId, onSelect }: ObjectiveRiverProps) {
+export function ObjectiveRiver({ piles, drawPileId, selectedPileId, zoom, onSelect }: ObjectiveRiverProps) {
+  const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight)
+
+  useEffect(() => {
+    const updateViewportHeight = () => setViewportHeight(window.innerHeight)
+    window.addEventListener('resize', updateViewportHeight)
+    return () => window.removeEventListener('resize', updateViewportHeight)
+  }, [])
+
+  const cardHeight = Math.min(110, viewportHeight * 0.12) * zoom
+  const riverStyle = {
+    '--river-card-height': `${cardHeight}px`,
+    '--river-card-width': `${cardHeight * (148 / 220)}px`,
+  } as CSSProperties
+
   const startDrag = (event: DragEvent<HTMLButtonElement>, pile: ObjectivePile) => {
     if (pile.id === drawPileId) {
       event.preventDefault()
@@ -23,7 +38,7 @@ export function ObjectiveRiver({ piles, drawPileId, selectedPileId, onSelect }: 
   }
 
   return (
-    <section className="objective-river" aria-label="Rivière des cartes objectif">
+    <section className="objective-river" style={riverStyle} aria-label="Rivière des cartes objectif">
       <h2 className="objective-river-title">Objectifs</h2>
       <div className="objective-river-slots">
         {Array.from({ length: OBJECTIVE_MARKET_SIZE + 1 }, (_, slot) => {

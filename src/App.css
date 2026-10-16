@@ -356,13 +356,15 @@ kbd {
 
 .objective-river {
   display: flex;
-  flex: 0 0 clamp(330px, 24vw, 490px);
+  flex: 0 0 calc(var(--river-card-width) + 28px);
   flex-direction: column;
   justify-content: center;
   gap: 12px;
   min-width: 0;
+  min-height: 0;
   padding: 14px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--board-bg);
@@ -376,8 +378,9 @@ kbd {
 }
 
 .objective-river-slots {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 6px;
 }
 
@@ -385,7 +388,9 @@ kbd {
   position: relative;
   display: block;
   min-width: 0;
-  aspect-ratio: 148 / 220;
+  flex: 0 0 auto;
+  width: var(--river-card-width);
+  height: var(--river-card-height);
   padding: 0;
   overflow: hidden;
   border: 1px dashed color-mix(in srgb, var(--accent) 38%, var(--line));
@@ -825,7 +830,7 @@ button.objective-river-slot.is-selected { box-shadow: 0 0 0 2px var(--accent); }
   .game-layout { grid-template-columns: 1fr; }
   .play-area { order: 1; }
   .playfield-layout { flex-direction: column; overflow-x: hidden; overflow-y: auto; }
-  .objective-river { flex: none; width: 100%; max-width: 640px; align-self: center; padding: 10px; }
+  .objective-river { flex: none; width: calc(var(--river-card-width) + 20px); max-width: 100%; align-self: center; padding: 8px; }
   .objective-river-title { font-size: 13px; }
   .sidebar { order: 2; overflow: visible; border-top: 1px solid var(--line); border-right: 0; }
   .board-stage { flex: none; height: 62vh; }

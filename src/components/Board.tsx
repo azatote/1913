@@ -51,6 +51,7 @@ type BoardProps = {
   selectedPileId: string | null
   remoteDrags: Record<string, Point>
   canPlayFromHand: boolean
+  onZoomChange: (zoom: number) => void
   onSelect: (pileId: string) => void
   onPileActivate: (pileId: string) => void
   onPileDrop: (pileId: string, position: Point) => void
@@ -218,6 +219,7 @@ export function Board({
   selectedPileId,
   remoteDrags,
   canPlayFromHand,
+  onZoomChange,
   onSelect,
   onPileActivate,
   onPileDrop,
@@ -242,6 +244,8 @@ export function Board({
   const pinchRef = useRef<{ distance: number; zoom: number } | null>(null)
   const [zoom, setZoom] = useState(1)
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null)
+
+  useEffect(() => onZoomChange(zoom), [onZoomChange, zoom])
 
   // Lets the memoized pile handlers read the latest props without being recreated.
   const latestRef = useRef({ state, mirrored, onSelect, onPileActivate, onPileDrop, onMoveObjectiveCard, onMovePlayerRow, onPileToHand, onDragMove, onDragEnd })
