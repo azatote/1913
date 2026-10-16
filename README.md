@@ -88,3 +88,27 @@ src/components/          Accueil, table, mains, choix du joueur, invitation, ape
 - **Accès anonyme** : les règles RLS sont ouvertes (outil entre amis, pas de compte).
   Pour un site public, ajouter Supabase Auth et resserrer les règles.
 - **Suppression** : le bouton « Supprimer la partie » efface la ligne en base pour les deux joueurs.
+
+## Reprise du projet
+
+À lire à la prochaine ouverture. `PASSATION_PROJET.md` à la racine du workspace décrit l'ancienne application statique; pour l'application actuelle, se référer à `src/` dans ce dépôt.
+
+### Prochaines évolutions
+
+1. Revoir les textes de l'aide en jeu dans `src/components/GameScreen.tsx` pour les aligner sur les commandes actuelles (table, mains, objectifs et plateaux de mobilisation).
+2. Reprendre le document des règles. Repérer le fichier de référence parmi `1913.txt`, `1913_conditions.txt` et ses variantes dans le workspace parent, puis le comparer aux règles de `src/game/logic.ts` et aux tests avant de le mettre à jour.
+3. Étudier un refactoring d'optimisation du site en mesurant d'abord les coûts (chargement des images, rendu React, CSS et bundle), sans régression fonctionnelle.
+
+### Évolutions récentes
+
+- Deux plateaux de mobilisation individuels sont empilés. Celui de l'adversaire est tourné de 180° et en lecture seule; seul le plateau du joueur courant permet de déplacer ses pions.
+- Les positions des pions sont indépendantes par joueur dans `campaignPawns`. Les anciens états à une seule série de positions sont migrés vers les deux plateaux.
+- Les pions-drapeaux France, Royaume-Uni et Russie ont été ajoutés et leur rendu est doublé par rapport aux anciens pions. Leurs positions initiales reprennent celles choisies dans la partie de référence : France `(0.341713, 0.434747)`, Royaume-Uni `(0.596808, 0.444955)`, Russie `(0.836617, 0.452611)` en coordonnées normalisées `(x, y)`.
+- Les positions déjà enregistrées dans une partie sont conservées; ces valeurs de départ s'appliquent aux nouvelles parties ou aux pions absents d'un ancien état.
+- Les badges visibles de propriétaire/statut des plateaux ont été retirés; les noms accessibles aux lecteurs d'écran restent présents.
+
+### Dernière validation et production
+
+- `npm run build` réussi; `node --test src/game/logic.test.mjs` : 7 tests réussis.
+- Dernier commit de production : `c6412f9` (`feat: ajouter les pions nationaux aux plateaux`), poussé sur `origin/main`. Le push déclenche Vercel; l'état final du déploiement n'a pas été vérifié.
+- Worktree `NanDeck-prod` : `main` propre et synchronisée au dernier contrôle. Dans le worktree `APP`, préserver les modifications locales de `README.md` et le dossier non suivi `%SystemDrive%/`; ne pas les inclure sans confirmation.
