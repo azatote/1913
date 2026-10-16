@@ -251,17 +251,18 @@ export function Board({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.code !== 'Space') return
       const target = event.target instanceof HTMLElement ? event.target : null
-      if (target?.closest('button, input, textarea, select, [contenteditable="true"]')) return
+      const drag = dragRef.current
+      if (!drag && target?.closest('button, input, textarea, select, [contenteditable="true"]')) return
       spaceHeldRef.current = true
       event.preventDefault()
       if (event.repeat) {
-        if (dragRef.current) event.stopImmediatePropagation()
+        if (drag) event.stopImmediatePropagation()
         return
       }
-      if (!dragRef.current) return
+      if (!drag) return
       event.stopImmediatePropagation()
 
-      const playerId = beginPlayerRowGroupDrag(dragRef.current, latestRef.current.state)
+      const playerId = beginPlayerRowGroupDrag(drag, latestRef.current.state)
       if (playerId) groupDragRef.current = { playerId, slots: 0 }
     }
 
