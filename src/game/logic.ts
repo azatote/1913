@@ -106,6 +106,7 @@ export function createInitialState(): GameState {
     piles: [...market, drawPile],
     hands,
     topZ: slotCount,
+    drawPileId: drawPile.id,
   }
 }
 
@@ -116,10 +117,23 @@ export function parseGameState(raw: unknown): GameState | null {
     return null
   }
 
+  const drawPile = typeof value.drawPileId === 'string'
+    ? value.piles.find((pile) => pile.id === value.drawPileId)
+    : undefined
+  const legacyDrawPile = value.piles
+    .filter((pile) => (
+      nearestRowIndex(pile.y) === 1
+      && Array.isArray(pile.cards)
+      && pile.cards.length > 0
+      && !isPileFaceUp(pile)
+    ))
+    .sort((left, right) => right.cards.length - left.cards.length || left.z - right.z)[0]
+
   return {
     piles: value.piles,
     hands: { top: value.hands.top, bottom: value.hands.bottom },
     topZ: typeof value.topZ === 'number' ? value.topZ : 1,
+    drawPileId: drawPile?.id ?? legacyDrawPile?.id ?? null,
   }
 }
 
@@ -213,6 +227,26 @@ function bringToFront(state: GameState, pile: Pile) {
 
 function removePile(state: GameState, pileId: string) {
   state.piles = state.piles.filter((pile) => pile.id !== pileId)
+  if (state.drawPileId === pileId) state.drawPileId = null
+}
+
+function replenishCentralSlot(state: GameState, position: Point) {
+  const drawPile = state.drawPileId ? findPile(state, state.drawPileId) : undefined
+  const card = drawPile?.cards.pop()
+  if (!drawPile || !card) return false
+
+  card.faceUp = true
+  if (drawPile.cards.length === 0) removePile(state, drawPile.id)
+
+  state.topZ += 1
+  state.piles.push({
+    id: createId(),
+    x: position.x,
+    y: ROW_Y[1],
+    z: state.topZ,
+    cards: [card],
+  })
+  return true
 }
 
 function addPile(state: GameState, cards: Card[], target: Point): Pile | null {
@@ -289,6 +323,12 @@ export function movePile(state: GameState, pileId: string, target: Point): Actio
   const pile = findPile(state, pileId)
   if (!pile) return { ok: false, message: '' }
 
+  const centralPosition = pile.id !== state.drawPileId
+    && pile.cards.length === 1
+    && nearestRowIndex(pile.y) === 1
+    ? { x: pile.x, y: ROW_Y[1] }
+    : null
+  const movedDrawPile = pile.id === state.drawPileId
   const position = snapPosition(state, pile, target)
   if (!position) return { ok: false, message: rowRefusal(pile, target) }
   Object.assign(pile, position)
@@ -298,16 +338,27 @@ export function movePile(state: GameState, pileId: string, target: Point): Actio
     candidate.id !== pile.id && Math.hypot(candidate.x - pile.x, candidate.y - pile.y) < MERGE_DISTANCE
   ))
   if (!mergeTarget) {
-    return { ok: true, message: `Paquet déplacé (${formatCardCount(pile.cards.length)}).`, selectedPileId: pile.id }
+    const replenished = centralPosition && isPlayerRow(nearestRowIndex(position.y))
+      ? replenishCentralSlot(state, centralPosition)
+      : false
+    return {
+      ok: true,
+      message: `Paquet déplacé (${formatCardCount(pile.cards.length)}).${replenished ? ' Une carte remplace celle prise au centre.' : ''}`,
+      selectedPileId: pile.id,
+    }
   }
 
   mergeTarget.cards.push(...pile.cards)
   removePile(state, pile.id)
+  if (movedDrawPile) state.drawPileId = mergeTarget.id
   bringToFront(state, mergeTarget)
   Object.assign(mergeTarget, snapPosition(state, mergeTarget, mergeTarget) ?? {})
+  const replenished = centralPosition && isPlayerRow(nearestRowIndex(position.y))
+    ? replenishCentralSlot(state, centralPosition)
+    : false
   return {
     ok: true,
-    message: `Paquets fusionnés : ${formatCardCount(mergeTarget.cards.length)}.`,
+    message: `Paquets fusionnés : ${formatCardCount(mergeTarget.cards.length)}.${replenished ? ' Une carte remplace celle prise au centre.' : ''}`,
     selectedPileId: mergeTarget.id,
   }
 }
@@ -360,9 +411,17 @@ export function movePileToHand(state: GameState, pileId: string | null, playerId
     return { ok: false, message: `Main de ${PLAYERS[playerId].label} pleine : ${MAX_HAND_SIZE} cartes maximum.` }
   }
 
+  const centralPosition = pile.id !== state.drawPileId && nearestRowIndex(pile.y) === 1
+    ? { x: pile.x, y: ROW_Y[1] }
+    : null
   state.hands[playerId].push(...pile.cards)
   removePile(state, pile.id)
-  return { ok: true, message: `Carte envoyée dans la main de ${PLAYERS[playerId].label}.`, selectedPileId: null }
+  const replenished = centralPosition ? replenishCentralSlot(state, centralPosition) : false
+  return {
+    ok: true,
+    message: `Carte envoyée dans la main de ${PLAYERS[playerId].label}.${replenished ? ' Une carte remplace celle prise au centre.' : ''}`,
+    selectedPileId: null,
+  }
 }
 
 export function playFromHand(state: GameState, playerId: PlayerId, index: number, target?: Point): ActionResult {

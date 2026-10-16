@@ -18,6 +18,7 @@ export type GameState = {
   piles: Pile[]
   hands: Record<PlayerId, Card[]>
   topZ: number
+  drawPileId: string | null
 }
 
 export type Point = {
