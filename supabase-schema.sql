@@ -29,6 +29,8 @@ alter table public.nd1913_games add constraint nd1913_games_state_shape_check ch
   and jsonb_typeof(state -> 'hands' -> 'top') = 'array'
   and jsonb_typeof(state -> 'hands' -> 'bottom') = 'array'
   and jsonb_typeof(state -> 'topZ') = 'number'
+  and (not (state ? 'objectivePiles') or jsonb_typeof(state -> 'objectivePiles') = 'array')
+  and (not (state ? 'objectiveDrawPileId') or jsonb_typeof(state -> 'objectiveDrawPileId') in ('string', 'null'))
 );
 
 alter table public.nd1913_games drop constraint if exists nd1913_games_state_size_check;
@@ -43,6 +45,7 @@ set search_path = public
 as $$
 declare
   card_codes integer[];
+  objective_codes integer[];
 begin
   if tg_op = 'UPDATE' then
     if new.revision <> old.revision + 1 then
@@ -84,13 +87,100 @@ begin
     select h.card from jsonb_array_elements(new.state -> 'hands' -> 'top') as h(card)
     union all
     select h.card from jsonb_array_elements(new.state -> 'hands' -> 'bottom') as h(card)
-  ) as c;
+  ) as c
+  where c.card ->> 'kind' is distinct from 'objective';
 
   if cardinality(card_codes) <> 56
     or (select count(distinct code) from unnest(card_codes) as code) <> 56
     or exists (select 1 from unnest(card_codes) as code where code not between 1 and 56) then
     raise exception 'Paquet invalide : 56 cartes uniques numerotees de 1 a 56 attendues'
       using errcode = '23514';
+  end if;
+
+  if new.state ? 'objectivePiles' then
+    if exists (
+      select 1
+      from jsonb_array_elements(new.state -> 'objectivePiles') as p(pile)
+      where jsonb_typeof(p.pile -> 'cards') is distinct from 'array'
+    ) then
+      raise exception 'Rivière objectif invalide : chaque pile doit contenir au moins une carte'
+        using errcode = '23514';
+    end if;
+
+    if exists (
+      select 1
+      from jsonb_array_elements(new.state -> 'objectivePiles') as p(pile)
+      where jsonb_typeof(p.pile -> 'slot') is distinct from 'number'
+    ) then
+      raise exception 'Rivière objectif invalide : emplacement absent'
+        using errcode = '23514';
+    end if;
+
+    if exists (
+        select 1
+        from jsonb_array_elements(new.state -> 'objectivePiles') as p(pile)
+        where jsonb_array_length(p.pile -> 'cards') = 0
+      )
+      or jsonb_array_length(new.state -> 'objectivePiles') > 5
+      or exists (
+        select 1
+        from jsonb_array_elements(new.state -> 'objectivePiles') as p(pile)
+        where (p.pile ->> 'slot')::numeric <> trunc((p.pile ->> 'slot')::numeric)
+          or (p.pile ->> 'slot')::integer not between 0 and 4
+      )
+      or exists (
+        select p.pile ->> 'slot'
+        from jsonb_array_elements(new.state -> 'objectivePiles') as p(pile)
+        group by p.pile ->> 'slot'
+        having count(*) > 1
+      ) then
+      raise exception 'Rivière objectif invalide : les cinq emplacements doivent être uniques'
+        using errcode = '23514';
+    end if;
+
+    select coalesce(array_agg((c.card ->> 'code')::integer), '{}')
+      into objective_codes
+    from (
+      select pc.card
+      from jsonb_array_elements(new.state -> 'piles') as p(pile)
+      cross join lateral jsonb_array_elements(p.pile -> 'cards') as pc(card)
+      union all
+      select pc.card
+      from jsonb_array_elements(coalesce(new.state -> 'objectivePiles', '[]'::jsonb)) as p(pile)
+      cross join lateral jsonb_array_elements(p.pile -> 'cards') as pc(card)
+      union all
+      select h.card from jsonb_array_elements(new.state -> 'hands' -> 'top') as h(card)
+      union all
+      select h.card from jsonb_array_elements(new.state -> 'hands' -> 'bottom') as h(card)
+    ) as c
+    where c.card ->> 'kind' = 'objective';
+
+    if cardinality(objective_codes) <> 36
+      or (select count(distinct code) from unnest(objective_codes) as code) <> 36
+      or exists (select 1 from unnest(objective_codes) as code where code not between 1 and 36) then
+      raise exception 'Paquet objectif invalide : 36 cartes uniques numerotees de 1 a 36 attendues'
+        using errcode = '23514';
+    end if;
+
+    if jsonb_typeof(new.state -> 'objectiveDrawPileId') = 'string'
+      and not exists (
+        select 1
+        from jsonb_array_elements(new.state -> 'objectivePiles') as p(pile)
+        where p.pile ->> 'id' = new.state ->> 'objectiveDrawPileId'
+          and (p.pile ->> 'slot')::integer = 0
+      ) then
+      raise exception 'Pioche objectif invalide : identifiant absent de la rivière'
+        using errcode = '23514';
+    end if;
+
+    if exists (
+      select 1
+      from jsonb_array_elements(new.state -> 'objectivePiles') as p(pile)
+      where (p.pile ->> 'slot')::integer = 0
+    ) and jsonb_typeof(new.state -> 'objectiveDrawPileId') is distinct from 'string' then
+      raise exception 'Rivière objectif invalide : la pioche doit correspondre au premier emplacement'
+        using errcode = '23514';
+    end if;
   end if;
 
   new.updated_at := now();

@@ -10,6 +10,8 @@ import {
   getTopCard,
   isPileFaceUp,
   isPlayerId,
+  moveObjectiveToHand,
+  moveObjectiveToPile,
   movePlayerRowGroup,
   movePile,
   movePileToHand,
@@ -28,6 +30,7 @@ import { Board } from './Board'
 import { CardPreview } from './CardPreview'
 import { HandOverlay } from './HandOverlay'
 import { InvitePanel } from './InvitePanel'
+import { ObjectiveRiver } from './ObjectiveRiver'
 import { SeatChooser } from './SeatChooser'
 
 const HIDE_OPPONENT_KEY = 'nd1913.hide-opponent-hand'
@@ -100,6 +103,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
   }, [seat, seatSince, status, trackPresence])
 
   const [selectedPileId, setSelectedPileId] = useState<string | null>(null)
+  const [selectedObjectivePileId, setSelectedObjectivePileId] = useState<string | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [handPreviewIndex, setHandPreviewIndex] = useState<number | null>(null)
   const [hideOpponentHand, setHideOpponentHand] = useState(() => readStored('local', HIDE_OPPONENT_KEY) === '1')
@@ -108,7 +112,10 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
   const viewerSeat = seat ?? 'bottom'
   const opponentSeat = opponentOf(viewerSeat)
   const selectedPile = state ? findPile(state, selectedPileId) : undefined
-  const selectedTopCard = selectedPile ? getTopCard(selectedPile) : undefined
+  const selectedObjectivePile = state?.objectivePiles.find((pile) => pile.id === selectedObjectivePileId)
+  const selectedTopCard = selectedPile
+    ? getTopCard(selectedPile)
+    : selectedObjectivePile?.cards.at(-1)
   const ownHand = seat && state ? state.hands[seat] : []
   const handPreviewCard = handPreviewIndex === null ? undefined : ownHand[handPreviewIndex]
 
@@ -127,7 +134,23 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
     const result = commit(action)
     if (result.message) setMessage(result.message)
     if (result.ok && result.selectedPileId !== undefined) setSelectedPileId(result.selectedPileId)
+    return result
   }, [commit])
+
+  const moveObjectiveToBoard = (objectivePileId: string, position: Point) => {
+    const result = run((draft) => moveObjectiveToPile(draft, objectivePileId, position))
+    if (result.ok) setSelectedObjectivePileId(null)
+  }
+
+  const takeObjectiveToHand = (objectivePileId: string, playerId: PlayerId) => {
+    const result = run((draft) => moveObjectiveToHand(draft, objectivePileId, playerId))
+    if (result.ok) setSelectedObjectivePileId(null)
+  }
+
+  const sendSelectedToHand = (playerId: PlayerId) => {
+    if (selectedObjectivePileId) takeObjectiveToHand(selectedObjectivePileId, playerId)
+    else run((draft) => movePileToHand(draft, selectedPileId, playerId))
+  }
 
   const drawSelected = () => {
     if (!state) return
@@ -150,8 +173,18 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
 
   const selectPile = (pileId: string) => {
     setSelectedPileId(pileId)
+    setSelectedObjectivePileId(null)
     const pile = state && findPile(state, pileId)
     if (pile) setMessage(`Paquet sélectionné : ${formatCardCount(pile.cards.length)}.`)
+  }
+
+  const selectObjectivePile = (pileId: string) => {
+    setSelectedPileId(null)
+    setSelectedObjectivePileId(pileId)
+    const pile = state?.objectivePiles.find((entry) => entry.id === pileId)
+    const card = pile?.cards.at(-1)
+    if (pile && pile.id === state?.objectiveDrawPileId) setMessage(`Pioche objectifs : ${formatCardCount(pile.cards.length)}.`)
+    else if (card) setMessage(`Objectif ${card.code} sélectionné.`)
   }
 
   const playCard = (index: number, position?: Point) => {
@@ -280,7 +313,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
           <section className="panel">
             <h2 className="panel-title">Mains <span className="accent">cachées</span></h2>
             {PLAYER_IDS.map((playerId) => (
-              <button key={playerId} type="button" className="action-button" onClick={() => run((draft) => movePileToHand(draft, selectedPileId, playerId))}>
+              <button key={playerId} type="button" className="action-button" onClick={() => sendSelectedToHand(playerId)}>
                 Envoyer vers la main de {PLAYERS[playerId].label}
               </button>
             ))}
@@ -309,6 +342,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
             <p>Double-clic sur une pioche : piocher 1 carte</p>
             <p>Double-clic sur une carte visible : la retourner</p>
             <p>Glisser-déposer : déplacer, ou fusionner sur un autre paquet</p>
+            <p>Rivière objectifs : glisser un objectif vers la table ou une main; la case se renouvelle</p>
             <p>Ligne d'un joueur : 7 cartes max, une par emplacement, aimantées bord à bord</p>
             <p>Maintenir Espace pendant le déplacement d'une carte de la ligne : déplacer toute la ligne</p>
             <p>Main ({MAX_HAND_SIZE} cartes max) : clic pour agrandir, glisser sur la table pour jouer</p>
@@ -325,41 +359,52 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
         </aside>
 
         <main className="play-area">
-          <Board
-            state={state}
-            mirrored={seat === 'top'}
-            selectedPileId={selectedPileId}
-            remoteDrags={remoteDrags}
-            canPlayFromHand={Boolean(seat)}
-            onSelect={selectPile}
-            onPileActivate={handlePileActivate}
-            onPileDrop={(pileId, position) => run((draft) => movePile(draft, pileId, position))}
-            onMovePlayerRow={(playerId, slots) => run((draft) => movePlayerRowGroup(draft, playerId, slots))}
-            onPileToHand={(pileId, playerId) => run((draft) => movePileToHand(draft, pileId, playerId))}
-            onPlayFromHand={playCard}
-            onDragMove={broadcastDrag}
-            onDragEnd={broadcastDragEnd}
-            hasOwnHand={Boolean(seat)}
-          >
-            {!hideOpponentHand && (
-              <HandOverlay
-                playerId={opponentSeat}
-                cards={state.hands[opponentSeat]}
-                isOwn={false}
-                onPreview={() => undefined}
-                onReorder={() => undefined}
-              />
-            )}
-            {seat && (
-              <HandOverlay
-                playerId={seat}
-                cards={state.hands[seat]}
-                isOwn
-                onPreview={setHandPreviewIndex}
-                onReorder={(from, to) => run((draft) => reorderHand(draft, seat, from, to))}
-              />
-            )}
-          </Board>
+          <div className="playfield-layout">
+            <ObjectiveRiver
+              piles={state.objectivePiles}
+              drawPileId={state.objectiveDrawPileId}
+              selectedPileId={selectedObjectivePileId}
+              onSelect={selectObjectivePile}
+            />
+            <Board
+              state={state}
+              mirrored={seat === 'top'}
+              selectedPileId={selectedPileId}
+              remoteDrags={remoteDrags}
+              canPlayFromHand={Boolean(seat)}
+              onSelect={selectPile}
+              onPileActivate={handlePileActivate}
+              onPileDrop={(pileId, position) => run((draft) => movePile(draft, pileId, position))}
+              onMoveObjectiveCard={moveObjectiveToBoard}
+              onMovePlayerRow={(playerId, slots) => run((draft) => movePlayerRowGroup(draft, playerId, slots))}
+              onPileToHand={(pileId, playerId) => run((draft) => movePileToHand(draft, pileId, playerId))}
+              onPlayFromHand={playCard}
+              onDragMove={broadcastDrag}
+              onDragEnd={broadcastDragEnd}
+              hasOwnHand={Boolean(seat)}
+            >
+              {!hideOpponentHand && (
+                <HandOverlay
+                  playerId={opponentSeat}
+                  cards={state.hands[opponentSeat]}
+                  isOwn={false}
+                  onPreview={() => undefined}
+                  onReorder={() => undefined}
+                  onTakeObjective={takeObjectiveToHand}
+                />
+              )}
+              {seat && (
+                <HandOverlay
+                  playerId={seat}
+                  cards={state.hands[seat]}
+                  isOwn
+                  onPreview={setHandPreviewIndex}
+                  onReorder={(from, to) => run((draft) => reorderHand(draft, seat, from, to))}
+                  onTakeObjective={takeObjectiveToHand}
+                />
+              )}
+            </Board>
+          </div>
         </main>
       </div>
 

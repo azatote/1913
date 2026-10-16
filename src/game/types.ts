@@ -4,6 +4,7 @@ export type Card = {
   id: string
   code: number
   faceUp: boolean
+  kind?: 'objective'
 }
 
 export type Pile = {
@@ -14,11 +15,20 @@ export type Pile = {
   cards: Card[]
 }
 
+export type ObjectivePile = {
+  id: string
+  slot: number
+  z: number
+  cards: Card[]
+}
+
 export type GameState = {
   piles: Pile[]
   hands: Record<PlayerId, Card[]>
   topZ: number
   drawPileId: string | null
+  objectivePiles: ObjectivePile[]
+  objectiveDrawPileId: string | null
 }
 
 export type Point = {

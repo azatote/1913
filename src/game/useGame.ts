@@ -22,7 +22,7 @@ type UseGameOptions = {
 }
 
 function toSnapshot(row: GameRow): Snapshot | null {
-  const state = parseGameState(row.state)
+  const state = parseGameState(row.state, row.id)
   return state ? { state, revision: row.revision } : null
 }
 

@@ -1,4 +1,4 @@
-import type { ActionResult, Card, GameState, Pile, PlayerId, Point } from './types'
+import type { ActionResult, Card, GameState, ObjectivePile, Pile, PlayerId, Point } from './types'
 
 // Model coordinates, shared by every client whatever its screen size.
 export const BOARD_WIDTH = 2200
@@ -6,6 +6,8 @@ export const BOARD_HEIGHT = 1400
 export const CARD_WIDTH = 148
 export const CARD_HEIGHT = 220
 export const CARD_TOTAL = 56
+export const OBJECTIVE_CARD_TOTAL = 36
+export const OBJECTIVE_MARKET_SIZE = 4
 export const MAX_HAND_SIZE = 3
 export const PLAYER_ROW_SLOTS = 7
 // Visual enlargement of the viewer's own row (display only, the model is unchanged).
@@ -67,11 +69,48 @@ export function formatCardCount(count: number) {
   return `${count} carte${count > 1 ? 's' : ''}`
 }
 
-function shuffleCards(cards: Card[]) {
+function shuffleCards(cards: Card[], random = Math.random) {
   for (let index = cards.length - 1; index > 0; index -= 1) {
-    const target = Math.floor(Math.random() * (index + 1))
+    const target = Math.floor(random() * (index + 1))
     ;[cards[index], cards[target]] = [cards[target], cards[index]]
   }
+}
+
+function seededRandom(seed: string) {
+  let value = 0
+  for (const character of seed) value = Math.imul(value ^ character.charCodeAt(0), 16777619)
+  return () => {
+    value = value + 0x6D2B79F5 | 0
+    let result = value
+    result = Math.imul(result ^ result >>> 15, result | 1)
+    result ^= result + Math.imul(result ^ result >>> 7, result | 61)
+    return ((result ^ result >>> 14) >>> 0) / 4294967296
+  }
+}
+
+function createObjectiveRiver(seed?: string) {
+  const cards = Array.from({ length: OBJECTIVE_CARD_TOTAL }, (_, index) => ({
+    id: seed ? `${seed}-objective-card-${index + 1}` : createId(),
+    code: index + 1,
+    faceUp: false,
+    kind: 'objective' as const,
+  }))
+  shuffleCards(cards, seed ? seededRandom(seed) : Math.random)
+
+  const drawPileId = seed ? `${seed}-objective-deck` : createId()
+  const piles: ObjectivePile[] = [{ id: drawPileId, slot: 0, z: 1, cards }]
+  for (let slot = 1; slot <= OBJECTIVE_MARKET_SIZE; slot += 1) {
+    const card = cards.pop()
+    if (!card) break
+    piles.push({
+      id: seed ? `${seed}-objective-slot-${slot}` : createId(),
+      slot,
+      z: slot + 1,
+      cards: [{ ...card, faceUp: true }],
+    })
+  }
+
+  return { objectivePiles: piles, objectiveDrawPileId: drawPileId }
 }
 
 // Opening layout: shuffled deck, 2 cards per hand, 5 face-up cards in the middle row with the deck at the end.
@@ -101,16 +140,18 @@ export function createInitialState(): GameState {
     cards: [{ ...card, faceUp: true }],
   }))
   const drawPile: Pile = { id: createId(), x: slotX(STARTING_MARKET_SIZE), y: ROW_Y[1], z: slotCount, cards: deck }
+  const objectiveRiver = createObjectiveRiver()
 
   return {
     piles: [...market, drawPile],
     hands,
     topZ: slotCount,
     drawPileId: drawPile.id,
+    ...objectiveRiver,
   }
 }
 
-export function parseGameState(raw: unknown): GameState | null {
+export function parseGameState(raw: unknown, legacySeed = ''): GameState | null {
   if (!raw || typeof raw !== 'object') return null
   const value = raw as Partial<GameState>
   if (!Array.isArray(value.piles) || !value.hands || !Array.isArray(value.hands.top) || !Array.isArray(value.hands.bottom)) {
@@ -128,12 +169,22 @@ export function parseGameState(raw: unknown): GameState | null {
       && !isPileFaceUp(pile)
     ))
     .sort((left, right) => right.cards.length - left.cards.length || left.z - right.z)[0]
+  const storedObjectivePiles = Array.isArray(value.objectivePiles) ? value.objectivePiles : undefined
+  const objectiveRiver = storedObjectivePiles ? null : createObjectiveRiver(legacySeed)
+  const objectivePiles = storedObjectivePiles ?? objectiveRiver!.objectivePiles
+  const objectiveDrawPileId = storedObjectivePiles
+    ? typeof value.objectiveDrawPileId === 'string' && objectivePiles.some((pile) => pile.id === value.objectiveDrawPileId)
+      ? value.objectiveDrawPileId
+      : null
+    : objectiveRiver!.objectiveDrawPileId
 
   return {
     piles: value.piles,
     hands: { top: value.hands.top, bottom: value.hands.bottom },
     topZ: typeof value.topZ === 'number' ? value.topZ : 1,
     drawPileId: drawPile?.id ?? legacyDrawPile?.id ?? null,
+    objectivePiles,
+    objectiveDrawPileId,
   }
 }
 
@@ -230,6 +281,30 @@ function removePile(state: GameState, pileId: string) {
   if (state.drawPileId === pileId) state.drawPileId = null
 }
 
+function removeObjectivePile(state: GameState, pileId: string) {
+  state.objectivePiles = state.objectivePiles.filter((pile) => pile.id !== pileId)
+  if (state.objectiveDrawPileId === pileId) state.objectiveDrawPileId = null
+}
+
+function replenishObjectiveSlot(state: GameState, slot: number) {
+  const drawPile = state.objectiveDrawPileId
+    ? state.objectivePiles.find((pile) => pile.id === state.objectiveDrawPileId)
+    : undefined
+  const card = drawPile?.cards.pop()
+  if (!drawPile || !card) return false
+
+  card.faceUp = true
+  if (drawPile.cards.length === 0) removeObjectivePile(state, drawPile.id)
+
+  state.objectivePiles.push({
+    id: createId(),
+    slot,
+    z: Math.max(0, ...state.objectivePiles.map((pile) => pile.z)) + 1,
+    cards: [card],
+  })
+  return true
+}
+
 function replenishCentralSlot(state: GameState, position: Point) {
   const drawPile = state.drawPileId ? findPile(state, state.drawPileId) : undefined
   const card = drawPile?.cards.pop()
@@ -319,11 +394,12 @@ export function shufflePile(state: GameState, pileId: string | null): ActionResu
   return { ok: true, message: `Paquet mélangé (${formatCardCount(pile.cards.length)}).`, selectedPileId: pile.id }
 }
 
-export function movePile(state: GameState, pileId: string, target: Point): ActionResult {
+export function movePile(state: GameState, pileId: string, target: Point, replenishCentralMarketSlot = true): ActionResult {
   const pile = findPile(state, pileId)
   if (!pile) return { ok: false, message: '' }
 
-  const centralPosition = pile.id !== state.drawPileId
+  const centralPosition = replenishCentralMarketSlot
+    && pile.id !== state.drawPileId
     && pile.cards.length === 1
     && nearestRowIndex(pile.y) === 1
     ? { x: pile.x, y: ROW_Y[1] }
@@ -360,6 +436,51 @@ export function movePile(state: GameState, pileId: string, target: Point): Actio
     ok: true,
     message: `Paquets fusionnés : ${formatCardCount(mergeTarget.cards.length)}.${replenished ? ' Une carte remplace celle prise au centre.' : ''}`,
     selectedPileId: mergeTarget.id,
+  }
+}
+
+export function moveObjectiveToPile(state: GameState, objectivePileId: string, target: Point): ActionResult {
+  const source = state.objectivePiles.find((pile) => pile.id === objectivePileId)
+  if (!source || source.id === state.objectiveDrawPileId || source.cards.length !== 1) {
+    return { ok: false, message: 'Sélectionnez un objectif visible dans la rivière.' }
+  }
+
+  const pile: Pile = { id: source.id, x: 0, y: 0, z: state.topZ + 1, cards: source.cards }
+  const position = snapPosition(state, pile, target)
+  if (!position) return { ok: false, message: rowRefusal(pile, target) }
+
+  removeObjectivePile(state, source.id)
+  Object.assign(pile, position)
+  state.piles.push(pile)
+  const result = movePile(state, pile.id, position, false)
+  if (!result.ok) {
+    removePile(state, pile.id)
+    state.objectivePiles.push(source)
+    return result
+  }
+
+  const replenished = replenishObjectiveSlot(state, source.slot)
+  return {
+    ...result,
+    message: `${result.message}${replenished ? ' Une carte objectif remplace celle prise dans la rivière.' : ''}`,
+  }
+}
+
+export function moveObjectiveToHand(state: GameState, objectivePileId: string, playerId: PlayerId): ActionResult {
+  const source = state.objectivePiles.find((pile) => pile.id === objectivePileId)
+  if (!source || source.id === state.objectiveDrawPileId || source.cards.length !== 1) {
+    return { ok: false, message: 'Sélectionnez un objectif visible dans la rivière.' }
+  }
+  if (state.hands[playerId].length >= MAX_HAND_SIZE) {
+    return { ok: false, message: `Main de ${PLAYERS[playerId].label} pleine : ${MAX_HAND_SIZE} cartes maximum.` }
+  }
+
+  state.hands[playerId].push(source.cards[0])
+  removeObjectivePile(state, source.id)
+  const replenished = replenishObjectiveSlot(state, source.slot)
+  return {
+    ok: true,
+    message: `Objectif envoyé dans la main de ${PLAYERS[playerId].label}.${replenished ? ' Une carte objectif remplace celle prise dans la rivière.' : ''}`,
   }
 }
 

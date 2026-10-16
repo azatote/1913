@@ -34,7 +34,7 @@ import {
   viewedRowIndex,
 } from '../game/logic'
 import type { GameState, Pile, PlayerId, Point } from '../game/types'
-import { isHandCardDrag, readHandCardIndex } from './dnd'
+import { isHandCardDrag, isObjectiveCardDrag, readHandCardIndex, readObjectivePileId } from './dnd'
 
 const DRAG_THRESHOLD_PX = 6
 const DOUBLE_TAP_MS = 350
@@ -54,6 +54,7 @@ type BoardProps = {
   onSelect: (pileId: string) => void
   onPileActivate: (pileId: string) => void
   onPileDrop: (pileId: string, position: Point) => void
+  onMoveObjectiveCard: (objectivePileId: string, position: Point) => void
   onMovePlayerRow: (playerId: PlayerId, slots: number) => void
   onPileToHand: (pileId: string, playerId: PlayerId) => void
   onPlayFromHand: (index: number, position: Point) => void
@@ -220,6 +221,7 @@ export function Board({
   onSelect,
   onPileActivate,
   onPileDrop,
+  onMoveObjectiveCard,
   onMovePlayerRow,
   onPileToHand,
   onPlayFromHand,
@@ -242,9 +244,9 @@ export function Board({
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null)
 
   // Lets the memoized pile handlers read the latest props without being recreated.
-  const latestRef = useRef({ state, mirrored, onSelect, onPileActivate, onPileDrop, onMovePlayerRow, onPileToHand, onDragMove, onDragEnd })
+  const latestRef = useRef({ state, mirrored, onSelect, onPileActivate, onPileDrop, onMoveObjectiveCard, onMovePlayerRow, onPileToHand, onDragMove, onDragEnd })
   useLayoutEffect(() => {
-    latestRef.current = { state, mirrored, onSelect, onPileActivate, onPileDrop, onMovePlayerRow, onPileToHand, onDragMove, onDragEnd }
+    latestRef.current = { state, mirrored, onSelect, onPileActivate, onPileDrop, onMoveObjectiveCard, onMovePlayerRow, onPileToHand, onDragMove, onDragEnd }
   })
 
   useEffect(() => {
@@ -498,17 +500,21 @@ export function Board({
   }
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
-    if (!canPlayFromHand || !isHandCardDrag(event.dataTransfer)) return
+    const handCard = canPlayFromHand && isHandCardDrag(event.dataTransfer)
+    if (!handCard && !isObjectiveCardDrag(event.dataTransfer)) return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
   }
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    const objectivePileId = readObjectivePileId(event.dataTransfer)
     const index = readHandCardIndex(event.dataTransfer)
-    if (!canPlayFromHand || index === null) return
+    if (!objectivePileId && (!canPlayFromHand || index === null)) return
     event.preventDefault()
     const pointer = unscaleViewPoint(pointerToView(event.clientX, event.clientY))
-    onPlayFromHand(index, mirrorTopLeft({ x: pointer.x - CARD_WIDTH / 2, y: pointer.y - CARD_HEIGHT / 2 }, mirrored))
+    const position = mirrorTopLeft({ x: pointer.x - CARD_WIDTH / 2, y: pointer.y - CARD_HEIGHT / 2 }, mirrored)
+    if (objectivePileId) latestRef.current.onMoveObjectiveCard(objectivePileId, position)
+    else if (index !== null) onPlayFromHand(index, position)
   }
 
   const boardStyle = {
