@@ -1,5 +1,5 @@
 export type PlayerId = 'top' | 'bottom'
-export type CampaignPawnId = 'money' | 'population' | 'industry' | 'factory'
+export type CampaignPawnId = 'money' | 'population' | 'industry' | 'factory' | 'france' | 'unitedKingdom' | 'russia'
 
 export type Card = {
   id: string

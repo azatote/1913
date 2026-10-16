@@ -52,12 +52,15 @@ export const PLAYERS: Record<PlayerId, { label: string; rowIndex: number }> = {
 
 export const PLAYER_IDS: PlayerId[] = ['bottom', 'top']
 
-export const CAMPAIGN_PAWN_IDS: CampaignPawnId[] = ['money', 'population', 'industry', 'factory']
+export const CAMPAIGN_PAWN_IDS: CampaignPawnId[] = ['money', 'population', 'industry', 'factory', 'france', 'unitedKingdom', 'russia']
 export const CAMPAIGN_PAWN_STARTS: Record<CampaignPawnId, Point> = {
   money: { x: 0.222, y: 0.056 },
   population: { x: 0.222, y: 0.113 },
   industry: { x: 0.222, y: 0.17 },
   factory: { x: 0.222, y: 0.227 },
+  france: { x: 0.341713, y: 0.434747 },
+  unitedKingdom: { x: 0.596808, y: 0.444955 },
+  russia: { x: 0.836617, y: 0.452611 },
 }
 
 function createCampaignPawnSet() {

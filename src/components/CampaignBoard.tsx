@@ -6,6 +6,9 @@ import factoryPawnUrl from '../assets/plateau/pion_piste_bleu_usine.png'
 import moneyPawnUrl from '../assets/plateau/pion_piste_jaune_monnaie.png'
 import industryPawnUrl from '../assets/plateau/pion_piste_rouge_industrie.png'
 import populationPawnUrl from '../assets/plateau/pion_piste_violet_population.png'
+import francePawnUrl from '../assets/plateau/pion_france.png'
+import unitedKingdomPawnUrl from '../assets/plateau/pion_royaumeuni.png'
+import russiaPawnUrl from '../assets/plateau/pion_russe.png'
 
 type CampaignBoardProps = {
   playerId: PlayerId
@@ -22,11 +25,14 @@ type PawnDrag = {
   position: Point
 }
 
-const CAMPAIGN_PAWNS: { id: CampaignPawnId; label: string; image: string }[] = [
+const CAMPAIGN_PAWNS: { id: CampaignPawnId; label: string; image: string; enlarged?: boolean }[] = [
   { id: 'money', label: 'Monnaie', image: moneyPawnUrl },
   { id: 'population', label: 'Population', image: populationPawnUrl },
   { id: 'industry', label: 'Industrie', image: industryPawnUrl },
   { id: 'factory', label: 'Usine', image: factoryPawnUrl },
+  { id: 'france', label: 'France', image: francePawnUrl, enlarged: true },
+  { id: 'unitedKingdom', label: 'Royaume-Uni', image: unitedKingdomPawnUrl, enlarged: true },
+  { id: 'russia', label: 'Russie', image: russiaPawnUrl, enlarged: true },
 ]
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
@@ -97,7 +103,7 @@ export function CampaignBoard({ playerId, positions, rotated, readOnly, onMovePa
             <button
               key={pawn.id}
               type="button"
-              className={`campaign-pawn${isDragging ? ' is-dragging' : ''}`}
+              className={`campaign-pawn${pawn.enlarged ? ' is-enlarged' : ''}${isDragging ? ' is-dragging' : ''}`}
               style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
               aria-label={`Pion ${pawn.label}${readOnly ? ', non déplaçable' : ', déplacer sur le plateau'}`}
               title={`Pion ${pawn.label}`}

@@ -17,6 +17,9 @@ test('campaign boards keep independent pawns and migrate old shared positions', 
   const state = createInitialState()
   const defaults = structuredClone(state.campaignPawns)
 
+  assert.deepEqual(state.campaignPawns.bottom.france, { x: 0.341713, y: 0.434747 })
+  assert.deepEqual(state.campaignPawns.bottom.unitedKingdom, { x: 0.596808, y: 0.444955 })
+  assert.deepEqual(state.campaignPawns.bottom.russia, { x: 0.836617, y: 0.452611 })
   assert.deepEqual(moveCampaignPawn(state, 'bottom', 'money', { x: 2, y: -1 }), { ok: true, message: '' })
   assert.deepEqual(state.campaignPawns.bottom.money, { x: 1, y: 0 })
   assert.deepEqual(state.campaignPawns.top, defaults.top)
