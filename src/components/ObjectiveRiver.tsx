@@ -21,10 +21,11 @@ export function ObjectiveRiver({ piles, drawPileId, selectedPileId, zoom, onSele
     return () => window.removeEventListener('resize', updateViewportHeight)
   }, [])
 
-  const cardHeight = Math.min(110, viewportHeight * 0.12) * zoom
+  const cardWidth = Math.min(180, viewportHeight * 0.2) * zoom
+  const cardHeight = cardWidth * (148 / 220)
   const riverStyle = {
     '--river-card-height': `${cardHeight}px`,
-    '--river-card-width': `${cardHeight * (148 / 220)}px`,
+    '--river-card-width': `${cardWidth}px`,
   } as CSSProperties
 
   const startDrag = (event: DragEvent<HTMLButtonElement>, pile: ObjectivePile) => {
@@ -62,7 +63,7 @@ export function ObjectiveRiver({ piles, drawPileId, selectedPileId, zoom, onSele
               onDragStart={(event) => startDrag(event, pile)}
               title={isDrawPile ? `${pile.cards.length} cartes objectif` : `Déplacer l'objectif ${topCard?.code ?? ''}`}
             >
-              {topCard && <img src={cardImageUrl(topCard)} alt="" draggable={false} decoding="async" />}
+              {topCard && <img className="objective-card-rotated" src={cardImageUrl(topCard)} alt="" draggable={false} decoding="async" />}
               {isDrawPile && <span className="objective-river-count">{pile.cards.length}</span>}
             </button>
           )

@@ -14,7 +14,9 @@ export function CardPreview({ card, onClose, actions }: CardPreviewProps) {
   return (
     <div className="overlay preview" role="dialog" aria-modal="true" aria-label={label} onClick={onClose}>
       <figure className="preview-card" onClick={(event) => event.stopPropagation()}>
-        <img src={cardImageUrl(card)} alt={label} />
+        <div className={`preview-visual${card.kind === 'objective' ? ' is-objective' : ''}`}>
+          <img src={cardImageUrl(card)} alt={label} />
+        </div>
         <figcaption>
           <span>{card.faceUp ? `Carte ${card.code}` : 'Face cachée'}</span>
           <div className="preview-actions">

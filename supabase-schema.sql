@@ -29,6 +29,11 @@ alter table public.nd1913_games add constraint nd1913_games_state_shape_check ch
   and jsonb_typeof(state -> 'hands' -> 'top') = 'array'
   and jsonb_typeof(state -> 'hands' -> 'bottom') = 'array'
   and jsonb_typeof(state -> 'topZ') = 'number'
+  and (not (state ? 'objectiveHands') or (
+    jsonb_typeof(state -> 'objectiveHands') = 'object'
+    and jsonb_typeof(state -> 'objectiveHands' -> 'top') = 'array'
+    and jsonb_typeof(state -> 'objectiveHands' -> 'bottom') = 'array'
+  ))
   and (not (state ? 'objectivePiles') or jsonb_typeof(state -> 'objectivePiles') = 'array')
   and (not (state ? 'objectiveDrawPileId') or jsonb_typeof(state -> 'objectiveDrawPileId') in ('string', 'null'))
 );
@@ -152,6 +157,10 @@ begin
       select h.card from jsonb_array_elements(new.state -> 'hands' -> 'top') as h(card)
       union all
       select h.card from jsonb_array_elements(new.state -> 'hands' -> 'bottom') as h(card)
+      union all
+      select h.card from jsonb_array_elements(coalesce(new.state -> 'objectiveHands' -> 'top', '[]'::jsonb)) as h(card)
+      union all
+      select h.card from jsonb_array_elements(coalesce(new.state -> 'objectiveHands' -> 'bottom', '[]'::jsonb)) as h(card)
     ) as c
     where c.card ->> 'kind' = 'objective';
 

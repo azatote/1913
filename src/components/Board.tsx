@@ -206,7 +206,15 @@ const PileView = memo(function PileView({
       onPointerCancel={(event) => onPointerEnd(event, true)}
     >
       <div className={`pile-stack depth-${stackDepth(pile.cards.length)}`}>
-        {topCard && <img src={cardImageUrl(topCard)} alt="" draggable={false} decoding="async" />}
+        {topCard && (
+          <img
+            className={topCard.kind === 'objective' ? 'is-objective-card' : undefined}
+            src={cardImageUrl(topCard)}
+            alt=""
+            draggable={false}
+            decoding="async"
+          />
+        )}
       </div>
       {pile.cards.length > 1 && <span className="pile-count">{pile.cards.length}</span>}
     </div>

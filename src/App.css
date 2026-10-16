@@ -405,7 +405,63 @@ button.objective-river-slot:focus-visible { outline: 2px solid var(--accent); ou
 button.objective-river-slot.is-selected { box-shadow: 0 0 0 2px var(--accent); }
 .objective-river-slot.is-draw-pile { border-style: solid; }
 .objective-river-slot.is-empty { opacity: 0.45; }
-.objective-river-slot img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.objective-river-slot img.objective-card-rotated {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--river-card-height);
+  height: var(--river-card-width);
+  object-fit: cover;
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+
+.objective-hand-overlay {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  justify-items: start;
+  gap: 5px;
+  max-width: 40cqw;
+  pointer-events: none;
+}
+.objective-hand-overlay.is-own { bottom: 8px; left: 12px; }
+.objective-hand-overlay.is-opponent { top: 10px; left: 12px; }
+.objective-hand-label {
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--paper) 90%, transparent);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.objective-hand-cards {
+  display: flex;
+  max-width: 40cqw;
+  gap: 5px;
+  overflow-x: auto;
+  pointer-events: auto;
+}
+.objective-hand-card {
+  position: relative;
+  flex: 0 0 auto;
+  width: clamp(76px, 8cqw, 112px);
+  aspect-ratio: 220 / 148;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper);
+  box-shadow: 0 8px 18px -12px rgba(17, 24, 39, 0.6);
+}
+.objective-hand-card img.objective-card-rotated {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 67.273%;
+  height: 148.649%;
+  object-fit: cover;
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
 
 .objective-river-count {
   position: absolute;
@@ -650,6 +706,14 @@ button.objective-river-slot.is-selected { box-shadow: 0 0 0 2px var(--accent); }
   object-fit: cover;
   pointer-events: none;
 }
+.pile-stack img.is-objective-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 67.273%;
+  height: 67.273%;
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
 
 .pile.is-selected .pile-stack img { outline: 0.2cqw solid var(--accent); outline-offset: 0.08cqw; }
 .pile.is-dragging .pile-stack { --lift: 0 1.6cqw 2.4cqw -0.6cqw rgba(17, 24, 39, 0.5); }
@@ -769,7 +833,23 @@ button.objective-river-slot.is-selected { box-shadow: 0 0 0 2px var(--accent); }
   box-shadow: var(--shadow-lg);
   animation: pop-in 0.25s ease-out;
 }
-.preview-card img { display: block; width: 100%; max-height: calc(100dvh - 150px); object-fit: contain; border-radius: 12px; }
+.preview-visual { width: 100%; max-height: calc(100dvh - 150px); }
+.preview-visual img { display: block; width: 100%; max-height: calc(100dvh - 150px); object-fit: contain; border-radius: 12px; }
+.preview-visual.is-objective {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 220 / 148;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--page);
+}
+.preview-visual.is-objective img {
+  width: 67.273%;
+  height: 148.649%;
+  max-height: none;
+  object-fit: cover;
+  transform: rotate(-90deg);
+}
 .preview-card figcaption { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--ink); font-weight: 600; }
 .preview-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
 .primary-button.small { padding: 7px 12px; box-shadow: none; font-size: 13px; }

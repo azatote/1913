@@ -145,6 +145,7 @@ export function createInitialState(): GameState {
   return {
     piles: [...market, drawPile],
     hands,
+    objectiveHands: { top: [], bottom: [] },
     topZ: slotCount,
     drawPileId: drawPile.id,
     ...objectiveRiver,
@@ -177,10 +178,20 @@ export function parseGameState(raw: unknown, legacySeed = ''): GameState | null 
       ? value.objectiveDrawPileId
       : null
     : objectiveRiver!.objectiveDrawPileId
+  const storedObjectiveHands = value.objectiveHands
+  const legacyTopObjectives = value.hands.top.filter((card) => card.kind === 'objective')
+  const legacyBottomObjectives = value.hands.bottom.filter((card) => card.kind === 'objective')
 
   return {
     piles: value.piles,
-    hands: { top: value.hands.top, bottom: value.hands.bottom },
+    hands: {
+      top: value.hands.top.filter((card) => card.kind !== 'objective'),
+      bottom: value.hands.bottom.filter((card) => card.kind !== 'objective'),
+    },
+    objectiveHands: {
+      top: [...(Array.isArray(storedObjectiveHands?.top) ? storedObjectiveHands.top : []), ...legacyTopObjectives],
+      bottom: [...(Array.isArray(storedObjectiveHands?.bottom) ? storedObjectiveHands.bottom : []), ...legacyBottomObjectives],
+    },
     topZ: typeof value.topZ === 'number' ? value.topZ : 1,
     drawPileId: drawPile?.id ?? legacyDrawPile?.id ?? null,
     objectivePiles,
@@ -471,11 +482,7 @@ export function moveObjectiveToHand(state: GameState, objectivePileId: string, p
   if (!source || source.id === state.objectiveDrawPileId || source.cards.length !== 1) {
     return { ok: false, message: 'Sélectionnez un objectif visible dans la rivière.' }
   }
-  if (state.hands[playerId].length >= MAX_HAND_SIZE) {
-    return { ok: false, message: `Main de ${PLAYERS[playerId].label} pleine : ${MAX_HAND_SIZE} cartes maximum.` }
-  }
-
-  state.hands[playerId].push(source.cards[0])
+  state.objectiveHands[playerId].push(source.cards[0])
   removeObjectivePile(state, source.id)
   const replenished = replenishObjectiveSlot(state, source.slot)
   return {

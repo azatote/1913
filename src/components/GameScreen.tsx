@@ -30,10 +30,12 @@ import { Board } from './Board'
 import { CardPreview } from './CardPreview'
 import { HandOverlay } from './HandOverlay'
 import { InvitePanel } from './InvitePanel'
+import { ObjectiveHandOverlay } from './ObjectiveHandOverlay'
 import { ObjectiveRiver } from './ObjectiveRiver'
 import { SeatChooser } from './SeatChooser'
 
 const HIDE_OPPONENT_KEY = 'nd1913.hide-opponent-hand'
+const HIDE_OWN_OBJECTIVE_KEY = 'nd1913.hide-own-objective-hand'
 const HIDE_SIDEBAR_KEY = 'nd1913.hide-sidebar'
 
 type SeatClaim = { seat: PlayerId; since: number }
@@ -108,6 +110,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [handPreviewIndex, setHandPreviewIndex] = useState<number | null>(null)
   const [hideOpponentHand, setHideOpponentHand] = useState(() => readStored('local', HIDE_OPPONENT_KEY) === '1')
+  const [hideOwnObjectiveHand, setHideOwnObjectiveHand] = useState(() => readStored('local', HIDE_OWN_OBJECTIVE_KEY) === '1')
   const [hideSidebar, setHideSidebar] = useState(() => readStored('local', HIDE_SIDEBAR_KEY) === '1')
 
   const viewerSeat = seat ?? 'bottom'
@@ -197,6 +200,12 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
     const next = !hideOpponentHand
     writeStored('local', HIDE_OPPONENT_KEY, next ? '1' : '0')
     setHideOpponentHand(next)
+  }
+
+  const toggleOwnObjectiveHand = () => {
+    const next = !hideOwnObjectiveHand
+    writeStored('local', HIDE_OWN_OBJECTIVE_KEY, next ? '1' : '0')
+    setHideOwnObjectiveHand(next)
   }
 
   const toggleSidebar = () => {
@@ -318,7 +327,10 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
               </button>
             ))}
             <button type="button" className={`action-button${hideOpponentHand ? ' is-active' : ''}`} onClick={toggleOpponentHand}>
-              {hideOpponentHand ? 'Afficher la main adverse' : 'Masquer la main adverse'}
+              {hideOpponentHand ? 'Afficher les mains adverses' : 'Masquer les mains adverses'}
+            </button>
+            <button type="button" className={`action-button${hideOwnObjectiveHand ? ' is-active' : ''}`} onClick={toggleOwnObjectiveHand}>
+              {hideOwnObjectiveHand ? 'Afficher ma main objectifs' : 'Masquer ma main objectifs'}
             </button>
           </section>
 
@@ -385,6 +397,15 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
               onDragEnd={broadcastDragEnd}
               hasOwnHand={Boolean(seat)}
             >
+              {seat && !hideOwnObjectiveHand && (
+                <ObjectiveHandOverlay playerId={seat} cards={state.objectiveHands[seat]} isOwn />
+              )}
+              {seat && !hideOpponentHand && (
+                <ObjectiveHandOverlay playerId={opponentSeat} cards={state.objectiveHands[opponentSeat]} isOwn={false} />
+              )}
+              {!seat && !hideOpponentHand && PLAYER_IDS.map((playerId) => (
+                <ObjectiveHandOverlay key={playerId} playerId={playerId} cards={state.objectiveHands[playerId]} isOwn={false} />
+              ))}
               {!hideOpponentHand && (
                 <HandOverlay
                   playerId={opponentSeat}
