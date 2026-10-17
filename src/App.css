@@ -581,9 +581,18 @@ button.objective-river-slot.is-selected { box-shadow: 0 0 0 2px var(--accent); }
   border-radius: 12px;
   background: var(--board-bg);
   box-shadow: 0 18px 36px -24px rgba(17, 24, 39, 0.34);
-  touch-action: none;
 }
-.campaign-board-art { position: absolute; inset: 0; }
+.campaign-board-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  touch-action: none;
+  cursor: grab;
+}
+.campaign-board-viewport.is-panning { cursor: grabbing; }
+.campaign-board-art { position: relative; }
 .campaign-board-art.is-rotated { transform: rotate(180deg); }
 .campaign-board-image { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; user-select: none; }
 .campaign-pawn {
