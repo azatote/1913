@@ -571,6 +571,7 @@ button.objective-river-slot.is-selected { box-shadow: 0 0 0 2px var(--accent); }
   gap: 12px;
   min-width: 0;
 }
+.campaign-boards[hidden] { display: none; }
 .campaign-board-surface {
   position: relative;
   flex: 0 0 auto;
