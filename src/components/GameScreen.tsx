@@ -118,6 +118,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
   const [hideOpponentHand, setHideOpponentHand] = useState(() => readStored('local', HIDE_OPPONENT_KEY) === '1')
   const [hideOwnObjectiveHand, setHideOwnObjectiveHand] = useState(() => readStored('local', HIDE_OWN_OBJECTIVE_KEY) === '1')
   const [hideSidebar, setHideSidebar] = useState(() => readStored('local', HIDE_SIDEBAR_KEY) === '1')
+  const [hideCampaignBoards, setHideCampaignBoards] = useState(false)
 
   const viewerSeat = seat ?? 'bottom'
   const opponentSeat = opponentOf(viewerSeat)
@@ -367,6 +368,15 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
             <button type="button" className={`action-button${hideOpponentHand ? ' is-active' : ''}`} onClick={toggleOpponentHand}>
               {hideOpponentHand ? 'Afficher les mains adverses' : 'Masquer les mains adverses'}
             </button>
+            <button
+              type="button"
+              className={`action-button${hideCampaignBoards ? ' is-active' : ''}`}
+              aria-expanded={!hideCampaignBoards}
+              aria-controls="campaign-boards"
+              onClick={() => setHideCampaignBoards((current) => !current)}
+            >
+              {hideCampaignBoards ? 'Afficher les deux plateaux' : 'Masquer les deux plateaux'}
+            </button>
             <button type="button" className={`action-button${hideOwnObjectiveHand ? ' is-active' : ''}`} onClick={toggleOwnObjectiveHand}>
               {hideOwnObjectiveHand ? 'Afficher ma main objectifs' : 'Masquer ma main objectifs'}
             </button>
@@ -466,7 +476,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
                 />
               )}
             </Board>
-            <div className="campaign-boards" aria-label="Plateaux individuels des joueurs">
+            <div className="campaign-boards" id="campaign-boards" hidden={hideCampaignBoards} aria-label="Plateaux individuels des joueurs">
               <CampaignBoard
                 playerId={opponentSeat}
                 positions={state.campaignPawns[opponentSeat]}
