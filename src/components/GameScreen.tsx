@@ -478,6 +478,8 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
         <main className="play-area">
           {showEndgameView ? (
             <EndgameView
+              key={gameId}
+              gameId={gameId}
               state={state}
               canEdit={Boolean(seat)}
               onPlayObjective={playEndgameObjective}
