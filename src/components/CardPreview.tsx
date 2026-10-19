@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { cardImageUrl } from '../game/cards'
 import type { Card } from '../game/types'
 
@@ -12,7 +13,7 @@ type CardPreviewProps = {
 export function CardPreview({ card, onClose, actions, objectiveUpright = false }: CardPreviewProps) {
   const label = card.faceUp ? `Vue agrandie de la carte ${card.code}` : 'Vue agrandie du dos de la carte'
 
-  return (
+  return createPortal(
     <div className="overlay preview" role="dialog" aria-modal="true" aria-label={label} onClick={onClose}>
       <figure className="preview-card" onClick={(event) => event.stopPropagation()}>
         <div className={`preview-visual${card.kind === 'objective' && !objectiveUpright ? ' is-objective' : ''}`}>
@@ -26,6 +27,7 @@ export function CardPreview({ card, onClose, actions, objectiveUpright = false }
           </div>
         </figcaption>
       </figure>
-    </div>
+    </div>,
+    document.body,
   )
 }
