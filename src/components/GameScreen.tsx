@@ -398,16 +398,18 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
 
           <section className="panel legend">
             <h2 className="panel-title">Aide</h2>
-            <p>Clic sur un paquet : le sélectionner</p>
-            <p>Double-clic sur une pioche : piocher 1 carte</p>
-            <p>Double-clic sur une carte visible : la retourner</p>
-            <p>Glisser-déposer : déplacer, ou fusionner sur un autre paquet</p>
-            <p>Rivière objectifs : glisser un objectif vers la table ou une main; la case se renouvelle</p>
-            <p>Ligne d'un joueur : 7 cartes max, une par emplacement, aimantées bord à bord</p>
-            <p>Maintenir Espace pendant le déplacement d'une carte de la ligne : déplacer toute la ligne</p>
-            <p>Main ({MAX_HAND_SIZE} cartes max) : clic pour agrandir, glisser sur la table pour jouer</p>
-            <p>Molette, pincement ou <kbd>+</kbd> <kbd>−</kbd> : zoom · <kbd>0</kbd> : ajuster</p>
-            <p>Glisser le fond de la table : déplacer la vue</p>
+            <p>Clic sur un paquet : le sélectionner; glisser-déposer : le déplacer ou le fusionner avec un autre paquet</p>
+            <p>Double-clic sur une pioche : piocher 1 carte; double-clic sur une carte visible : la retourner</p>
+            <p><kbd>D</kbd> : piocher dans le paquet sélectionné (ou la pioche); <kbd>F</kbd> : retourner sa carte supérieure</p>
+            <p><kbd>P</kbd> : agrandir la carte sélectionnée; <kbd>Échap</kbd> : fermer l'aperçu</p>
+            <p>Actions de jeu : mélanger le paquet sélectionné, ou envoyer un paquet vers la main d'un joueur</p>
+            <p>Main ({MAX_HAND_SIZE} cartes max) : cliquer sur une carte pour l'agrandir, glisser pour la jouer ou réorganiser sa main</p>
+            <p>Glisser un paquet vers une main pour y transférer ses cartes; glisser un objectif vers la table ou une main pour le jouer</p>
+            <p>Rivière objectifs : après le départ d'un objectif visible, son emplacement se renouvelle</p>
+            <p>Ligne d'un joueur : 7 cartes max, une par emplacement; maintenir Espace pendant le glissement pour déplacer toute la ligne</p>
+            <p>Plateaux de mobilisation : glisser ses pions pour les déplacer; le plateau adverse est en lecture seule</p>
+            <p>Dans « Mains cachées » : afficher/masquer les mains adverses, sa main objectifs et les deux plateaux</p>
+            <p>Molette, pincement ou <kbd>+</kbd> <kbd>−</kbd> : zoom · <kbd>0</kbd> : ajuster; glisser le fond pour déplacer la vue</p>
           </section>
 
           <section className="panel">
