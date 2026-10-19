@@ -51,6 +51,9 @@ export function Home({ themeToggle, onOpen }: HomeProps) {
           Créez une partie, faites scanner le QR code à votre adversaire et jouez à deux :
           chacun voit la table depuis son côté.
         </p>
+        <a className="rules-link" href="/TABLE_1913_Regles_ludiques%201.pdf" target="_blank" rel="noreferrer">
+          Consulter les règles ludiques (PDF)
+        </a>
         <button type="button" className="primary-button full" onClick={() => void createGame()} disabled={creating}>
           {creating ? 'Création…' : 'Créer une partie'} <span aria-hidden="true">→</span>
         </button>
