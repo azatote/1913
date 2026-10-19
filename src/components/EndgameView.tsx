@@ -28,8 +28,8 @@ function readDragPayload<T>(event: DragEvent, mimeType: string): T | null {
   }
 }
 
-function allowDrop(event: DragEvent, mimeType: string, canEdit: boolean) {
-  if (!canEdit || !event.dataTransfer.types.includes(mimeType)) return
+function allowObjectiveDrop(event: DragEvent, canEdit: boolean) {
+  if (!canEdit || ![OBJECTIVE_HAND_MIME, BOARD_OBJECTIVE_MIME].some((mimeType) => event.dataTransfer.types.includes(mimeType))) return
   event.preventDefault()
   event.dataTransfer.dropEffect = 'move'
 }
@@ -44,80 +44,68 @@ export function EndgameView({ state, canEdit, onPlayObjective, onReturnObjective
     }
   }
 
-  const renderObjectives = (playerId: PlayerId) => (
-    <section className="endgame-objectives" aria-label={`Objectifs de ${PLAYERS[playerId].label}`}>
-      <h2>{PLAYERS[playerId].label} · Objectifs</h2>
-      <div className="endgame-objective-zones">
-        <section
-          className="endgame-objective-zone"
-          aria-label={`Objectifs en main de ${PLAYERS[playerId].label}`}
-          onDragOver={(event) => allowDrop(event, BOARD_OBJECTIVE_MIME, canEdit)}
-          onDrop={(event) => {
-            const payload = readDragPayload<BoardObjectiveDrag>(event, BOARD_OBJECTIVE_MIME)
-            if (!canEdit || !payload) return
-            event.preventDefault()
-            onReturnObjective(payload.pileId, payload.cardId, playerId)
-          }}
-        >
-          <h3>En main <span>{state.objectiveHands[playerId].length}</span></h3>
-          <div className="endgame-objective-cards">
-            {state.objectiveHands[playerId].map((card) => (
-              <button
-                key={card.id}
-                type="button"
-                className="endgame-objective-card"
-                draggable={canEdit}
-                title={canEdit ? `Objectif ${card.code} · glisser vers un plateau pour le jouer` : `Objectif ${card.code}`}
-                onClick={() => onPreviewObjective({ card, playerId, source: 'hand' })}
-                onDragStart={(event) => {
-                  event.dataTransfer.setData(OBJECTIVE_HAND_MIME, JSON.stringify({ sourcePlayerId: playerId, cardId: card.id } satisfies HandObjectiveDrag))
-                  event.dataTransfer.effectAllowed = 'move'
-                }}
-              >
-                <img src={cardFaceUrl(card.code, 'objective')} alt={`Objectif ${card.code}`} draggable={false} />
-              </button>
-            ))}
-            {state.objectiveHands[playerId].length === 0 && <span className="endgame-objective-empty">Aucun objectif en main</span>}
-          </div>
-        </section>
+  const renderObjectives = (playerId: PlayerId) => {
+    const objectives: (
+      | { card: Card; source: 'hand' }
+      | { card: Card; source: 'board'; pileId: string }
+    )[] = [
+      ...state.objectiveHands[playerId].map((card) => ({ card, source: 'hand' as const })),
+      ...boardObjectives[playerId].map(({ pileId, card }) => ({ card, source: 'board' as const, pileId })),
+    ]
 
-        <section
-          className="endgame-objective-zone is-played"
-          aria-label={`Objectifs sur le plateau de ${PLAYERS[playerId].label}`}
-          onDragOver={(event) => allowDrop(event, OBJECTIVE_HAND_MIME, canEdit)}
-          onDrop={(event) => {
-            const payload = readDragPayload<HandObjectiveDrag>(event, OBJECTIVE_HAND_MIME)
-            if (!canEdit || !payload) return
+    return (
+      <section
+        className="endgame-objectives"
+        aria-label={`Objectifs de ${PLAYERS[playerId].label}`}
+        onDragOver={(event) => allowObjectiveDrop(event, canEdit)}
+        onDrop={(event) => {
+          const boardCard = readDragPayload<BoardObjectiveDrag>(event, BOARD_OBJECTIVE_MIME)
+          if (boardCard && canEdit) {
             event.preventDefault()
-            const bounds = event.currentTarget.getBoundingClientRect()
-            const x = ((event.clientX - bounds.left) / bounds.width) * BOARD_WIDTH
-            onPlayObjective(payload.sourcePlayerId, payload.cardId, playerId, { x, y: objectiveRowY(playerId) })
-          }}
-        >
-          <h3>Sur le plateau <span>{boardObjectives[playerId].length}</span></h3>
-          <div className="endgame-objective-cards">
-            {boardObjectives[playerId].map(({ pileId, card }) => (
-              <button
-                key={`${pileId}-${card.id}`}
-                type="button"
-                className="endgame-objective-card"
-                draggable={canEdit}
-                title={canEdit ? `Objectif ${card.code} · glisser vers une main objectifs pour le reprendre` : `Objectif ${card.code}`}
-                onClick={() => onPreviewObjective({ card, playerId, source: 'board', pileId })}
-                onDragStart={(event) => {
-                  event.dataTransfer.setData(BOARD_OBJECTIVE_MIME, JSON.stringify({ pileId, cardId: card.id } satisfies BoardObjectiveDrag))
-                  event.dataTransfer.effectAllowed = 'move'
-                }}
-              >
-                <img src={cardFaceUrl(card.code, 'objective')} alt={`Objectif ${card.code}`} draggable={false} />
-              </button>
-            ))}
-            {boardObjectives[playerId].length === 0 && <span className="endgame-objective-empty">Aucun objectif joué</span>}
-          </div>
-        </section>
-      </div>
-    </section>
-  )
+            onReturnObjective(boardCard.pileId, boardCard.cardId, playerId)
+            return
+          }
+
+          const handCard = readDragPayload<HandObjectiveDrag>(event, OBJECTIVE_HAND_MIME)
+          if (!handCard || !canEdit) return
+          event.preventDefault()
+          const bounds = event.currentTarget.getBoundingClientRect()
+          const x = ((event.clientX - bounds.left) / bounds.width) * BOARD_WIDTH
+          onPlayObjective(handCard.sourcePlayerId, handCard.cardId, playerId, { x, y: objectiveRowY(playerId) })
+        }}
+      >
+        <h2>{PLAYERS[playerId].label} · Objectifs <span>{objectives.length}</span></h2>
+        <div className="endgame-objective-cards">
+          {objectives.map((objective) => (
+            <button
+              key={objective.card.id}
+              type="button"
+              className="endgame-objective-card"
+              draggable={canEdit}
+              title={`Objectif ${objective.card.code}`}
+              onClick={() => onPreviewObjective({
+                card: objective.card,
+                playerId,
+                source: objective.source,
+                ...(objective.source === 'board' ? { pileId: objective.pileId } : {}),
+              })}
+              onDragStart={(event) => {
+                if (objective.source === 'hand') {
+                  event.dataTransfer.setData(OBJECTIVE_HAND_MIME, JSON.stringify({ sourcePlayerId: playerId, cardId: objective.card.id } satisfies HandObjectiveDrag))
+                } else {
+                  event.dataTransfer.setData(BOARD_OBJECTIVE_MIME, JSON.stringify({ pileId: objective.pileId, cardId: objective.card.id } satisfies BoardObjectiveDrag))
+                }
+                event.dataTransfer.effectAllowed = 'move'
+              }}
+            >
+              <img src={cardFaceUrl(objective.card.code, 'objective')} alt={`Objectif ${objective.card.code}`} draggable={false} />
+            </button>
+          ))}
+          {objectives.length === 0 && <span className="endgame-objective-empty">Aucun objectif</span>}
+        </div>
+      </section>
+    )
+  }
 
   return (
     <div className="endgame-view">
