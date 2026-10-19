@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   createInitialState,
+  moveObjectiveCardToHand,
   moveCampaignPawn,
   moveObjectiveToHand,
   movePileToHand,
@@ -132,4 +133,17 @@ test('legacy board rows migrate into the five-row layout without losing cards', 
   ].filter((card) => card.kind !== 'objective')
   assert.equal(standardCards.length, 56)
   assert.deepEqual(parseGameState(migrated, 'legacy-layout'), migrated)
+})
+
+test('an objective can be returned from a board stack without moving its other cards', () => {
+  const state = createInitialState()
+  const objective = { id: 'objective-on-board', code: 7, faceUp: true, kind: 'objective' }
+  const standard = { id: 'standard-on-board', code: 12, faceUp: true }
+  state.piles.push({ id: 'objective-stack', x: 500, y: ROW_Y[OBJECTIVE_ROW_INDEX.bottom], z: 1, cards: [standard, objective] })
+
+  const result = moveObjectiveCardToHand(state, 'objective-stack', objective.id, 'bottom')
+
+  assert.equal(result.ok, true)
+  assert.deepEqual(state.objectiveHands.bottom.at(-1), objective)
+  assert.deepEqual(state.piles.find((pile) => pile.id === 'objective-stack').cards, [standard])
 })
