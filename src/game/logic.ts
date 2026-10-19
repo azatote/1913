@@ -652,6 +652,20 @@ export function movePileToHand(state: GameState, pileId: string | null, playerId
   }
 }
 
+export function moveObjectiveCardToHand(state: GameState, pileId: string, cardId: string, playerId: PlayerId): ActionResult {
+  const pile = findPile(state, pileId)
+  const cardIndex = pile?.cards.findIndex((card) => card.id === cardId) ?? -1
+  const card = cardIndex >= 0 ? pile?.cards[cardIndex] : undefined
+  if (!pile || !card || card.kind !== 'objective') {
+    return { ok: false, message: 'Objectif introuvable sur le plateau.' }
+  }
+
+  const [objective] = pile.cards.splice(cardIndex, 1)
+  state.objectiveHands[playerId].push({ ...objective, faceUp: true })
+  if (pile.cards.length === 0) removePile(state, pile.id)
+  return { ok: true, message: `Objectif ajouté à la main de ${PLAYERS[playerId].label}.` }
+}
+
 export function playFromHand(state: GameState, playerId: PlayerId, index: number, target?: Point): ActionResult {
   const card = state.hands[playerId][index]
   if (!card) return { ok: false, message: '' }

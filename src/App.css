@@ -584,6 +584,37 @@ button.objective-river-slot.is-selected { box-shadow: 0 0 0 2px var(--accent); }
   min-width: 0;
 }
 .campaign-boards[hidden] { display: none; }
+.endgame-view {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.endgame-view-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.endgame-view-header p { margin: 0; color: var(--muted); font-size: 13px; }
+.endgame-matrix { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 14px; }
+.endgame-objectives,
+.endgame-campaign { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+.endgame-objectives h2,
+.endgame-campaign h2 { margin: 0 0 10px; color: var(--ink); font: 600 14px var(--display); }
+.endgame-objective-zones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.endgame-objective-zone { min-width: 0; min-height: 132px; padding: 8px; border: 1px dashed var(--line); border-radius: 6px; background: var(--board-bg); }
+.endgame-objective-zone.is-played { border-color: color-mix(in srgb, var(--accent) 42%, var(--line)); }
+.endgame-objective-zone h3 { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 8px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.endgame-objective-zone h3 span { color: var(--ink); font-variant-numeric: tabular-nums; }
+.endgame-objective-cards { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; }
+.endgame-objective-card { flex: 0 0 58px; aspect-ratio: 148 / 220; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); cursor: pointer; }
+.endgame-objective-card img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.endgame-objective-card[draggable="true"] { cursor: grab; }
+.endgame-objective-card[draggable="true"]:active { cursor: grabbing; }
+.endgame-objective-card:hover,
+.endgame-objective-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.endgame-objective-empty { color: var(--muted); font-size: 12px; }
+.endgame-campaign .campaign-board-surface { width: 100%; }
 .campaign-board-surface {
   position: relative;
   flex: 0 0 auto;
@@ -970,6 +1001,9 @@ button.objective-river-slot.is-selected { box-shadow: 0 0 0 2px var(--accent); }
   .board-stage { flex: none; height: 62vh; }
   .playfield-layout > .board-stage { flex: none; min-width: 0; }
   .campaign-boards { flex: 0 0 auto; width: min(100%, 620px); align-self: center; }
+  .endgame-view { overflow: visible; }
+  .endgame-matrix { grid-template-columns: minmax(0, 1fr); }
+  .endgame-view-header { align-items: flex-start; flex-direction: column; }
   .board-hint { display: none; }
 }
 

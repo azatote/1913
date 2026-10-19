@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   MAX_HAND_SIZE,
+  BOARD_WIDTH,
+  CARD_WIDTH,
   OBJECTIVE_ROW_INDEX,
   PLAYER_IDS,
   PLAYERS,
@@ -13,11 +15,13 @@ import {
   isPlayerId,
   moveCampaignPawn,
   moveObjectiveToHand,
+  moveObjectiveCardToHand,
   moveObjectiveToPile,
   movePlayerRowGroup,
   movePile,
   movePileToHand,
   nearestRowIndex,
+  objectiveRowY,
   opponentOf,
   playFromHand,
   playObjectiveFromHand,
@@ -37,6 +41,7 @@ import { HandOverlay } from './HandOverlay'
 import { InvitePanel } from './InvitePanel'
 import { ObjectiveHandOverlay } from './ObjectiveHandOverlay'
 import { ObjectiveRiver } from './ObjectiveRiver'
+import { EndgameView, type ObjectivePreview } from './EndgameView'
 import { SeatChooser } from './SeatChooser'
 
 const HIDE_OPPONENT_KEY = 'nd1913.hide-opponent-hand'
@@ -44,6 +49,20 @@ const HIDE_OWN_OBJECTIVE_KEY = 'nd1913.hide-own-objective-hand'
 const HIDE_SIDEBAR_KEY = 'nd1913.hide-sidebar'
 
 type SeatClaim = { seat: PlayerId; since: number }
+
+function nextObjectivePosition(state: GameState, playerId: PlayerId): Point {
+  const rowIndex = OBJECTIVE_ROW_INDEX[playerId]
+  const step = CARD_WIDTH + 24
+  const firstX = 24
+  const slotCount = Math.floor((BOARD_WIDTH - firstX - CARD_WIDTH) / step) + 1
+  for (let slot = 0; slot < slotCount; slot += 1) {
+    const x = firstX + slot * step
+    if (state.piles.every((pile) => nearestRowIndex(pile.y) !== rowIndex || Math.abs(pile.x - x) >= CARD_WIDTH)) {
+      return { x, y: objectiveRowY(playerId) }
+    }
+  }
+  return { x: BOARD_WIDTH - CARD_WIDTH, y: objectiveRowY(playerId) }
+}
 
 function loadSeatClaim(key: string): SeatClaim | null {
   try {
@@ -114,6 +133,8 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
   const [selectedHandObjective, setSelectedHandObjective] = useState<{ playerId: PlayerId; cardId: string } | null>(null)
   const [boardScale, setBoardScale] = useState(0)
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [endgameSelection, setEndgameSelection] = useState<ObjectivePreview | null>(null)
+  const [showEndgameView, setShowEndgameView] = useState(false)
   const [handPreviewIndex, setHandPreviewIndex] = useState<number | null>(null)
   const [hideOpponentHand, setHideOpponentHand] = useState(() => readStored('local', HIDE_OPPONENT_KEY) === '1')
   const [hideOwnObjectiveHand, setHideOwnObjectiveHand] = useState(() => readStored('local', HIDE_OWN_OBJECTIVE_KEY) === '1')
@@ -127,7 +148,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
   const selectedHandObjectiveCard = selectedHandObjective
     ? state?.objectiveHands[selectedHandObjective.playerId].find((card) => card.id === selectedHandObjective.cardId)
     : undefined
-  const selectedTopCard = selectedHandObjectiveCard ?? (selectedPile
+  const selectedTopCard = endgameSelection?.card ?? selectedHandObjectiveCard ?? (selectedPile
     ? getTopCard(selectedPile)
     : selectedObjectivePile?.cards.at(-1))
   const selectedObjectiveRow = selectedPile
@@ -233,6 +254,31 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
       setSelectedHandObjective(null)
       setPreviewOpen(false)
     }
+  }
+
+  const playEndgameObjective = (sourcePlayerId: PlayerId, cardId: string, targetPlayerId: PlayerId, position: Point) => {
+    const target = { x: position.x, y: objectiveRowY(targetPlayerId) }
+    const result = run((draft) => playObjectiveFromHand(draft, sourcePlayerId, cardId, target))
+    if (result.ok) {
+      setEndgameSelection(null)
+      setPreviewOpen(false)
+    }
+  }
+
+  const returnEndgameObjective = (pileId: string, cardId: string, playerId: PlayerId) => {
+    const result = run((draft) => moveObjectiveCardToHand(draft, pileId, cardId, playerId))
+    if (result.ok) {
+      setEndgameSelection(null)
+      setPreviewOpen(false)
+    }
+  }
+
+  const previewEndgameObjective = (selection: ObjectivePreview) => {
+    setSelectedHandObjective(null)
+    setSelectedPileId(null)
+    setSelectedObjectivePileId(null)
+    setEndgameSelection(selection)
+    setPreviewOpen(true)
   }
 
   const toggleOpponentHand = () => {
@@ -343,6 +389,14 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
           <span className="pill">{seat ? `Vous jouez ${PLAYERS[seat].label}` : 'Spectateur'}</span>
         </div>
         <div className="header-right">
+          <button
+            type="button"
+            className="secondary-button small"
+            aria-pressed={showEndgameView}
+            onClick={() => setShowEndgameView((current) => !current)}
+          >
+            {showEndgameView ? 'Retour à la partie' : 'Vue de fin de partie'}
+          </button>
           <span className={`status-pill is-${connection.key}`} aria-live="polite"><i aria-hidden="true" />{connection.label}</span>
           {themeToggle}
         </div>
@@ -407,8 +461,9 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
             <p>Glisser un paquet vers une main pour y transférer ses cartes; glisser un objectif vers la table ou une main pour le jouer</p>
             <p>Rivière objectifs : après le départ d'un objectif visible, son emplacement se renouvelle</p>
             <p>Ligne d'un joueur : 7 cartes max, une par emplacement; maintenir Espace pendant le glissement pour déplacer toute la ligne</p>
-            <p>Plateaux de mobilisation : glisser ses pions pour les déplacer; le plateau adverse est en lecture seule</p>
+            <p>Plateaux de mobilisation : glisser ses pions; dans la vue de fin, les deux plateaux sont modifiables</p>
             <p>Dans « Mains cachées » : afficher/masquer les mains adverses, sa main objectifs et les deux plateaux</p>
+            <p>« Vue de fin de partie » dans l'en-tête : comparer les objectifs et plateaux; « Retour à la partie » revient au jeu</p>
             <p>Molette, pincement ou <kbd>+</kbd> <kbd>−</kbd> : zoom · <kbd>0</kbd> : ajuster; glisser le fond pour déplacer la vue</p>
           </section>
 
@@ -421,6 +476,16 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
         </aside>
 
         <main className="play-area">
+          {showEndgameView ? (
+            <EndgameView
+              state={state}
+              canEdit={Boolean(seat)}
+              onPlayObjective={playEndgameObjective}
+              onReturnObjective={returnEndgameObjective}
+              onPreviewObjective={previewEndgameObjective}
+              onMovePawn={(playerId, pawnId, position) => run((draft) => moveCampaignPawn(draft, playerId, pawnId, position))}
+            />
+          ) : (
           <div className="playfield-layout">
             <ObjectiveRiver
               piles={state.objectivePiles}
@@ -495,6 +560,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
               />
             </div>
           </div>
+          )}
         </main>
       </div>
 
@@ -502,9 +568,22 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
       {previewOpen && selectedTopCard && (
         <CardPreview
           card={selectedTopCard}
-          objectiveUpright={Boolean(selectedHandObjectiveCard || selectedObjectivePile || selectedObjectiveRow)}
-          onClose={() => setPreviewOpen(false)}
-          actions={selectedHandObjectiveCard && selectedHandObjective?.playerId === seat ? (
+          objectiveUpright={Boolean(endgameSelection || selectedHandObjectiveCard || selectedObjectivePile || selectedObjectiveRow)}
+          onClose={() => {
+            setPreviewOpen(false)
+            setEndgameSelection(null)
+          }}
+          actions={endgameSelection && seat ? (
+            <button
+              type="button"
+              className="primary-button small"
+              onClick={() => endgameSelection.source === 'hand'
+                ? playEndgameObjective(endgameSelection.playerId, endgameSelection.card.id, endgameSelection.playerId, nextObjectivePosition(state, endgameSelection.playerId))
+                : endgameSelection.pileId && returnEndgameObjective(endgameSelection.pileId, endgameSelection.card.id, endgameSelection.playerId)}
+            >
+              {endgameSelection.source === 'hand' ? 'Jouer sur le plateau' : 'Reprendre en main objectifs'}
+            </button>
+          ) : selectedHandObjectiveCard && selectedHandObjective?.playerId === seat ? (
             <button type="button" className="primary-button small" onClick={() => playObjectiveCard(selectedHandObjectiveCard.id)}>
               Jouer sur la table
             </button>
