@@ -234,12 +234,16 @@ export function useGame({ gameId, tabId, onNotice }: UseGameOptions) {
     void channelRef.current?.send({ type: 'broadcast', event: 'pile-drag-end', payload: { pileId } })
   }, [])
 
+  const announceDeleted = useCallback(async () => {
+    await channelRef.current?.send({ type: 'broadcast', event: 'game-deleted', payload: {} })
+  }, [])
+
   const deleteGame = useCallback(async () => {
     if (!supabase) return
     const { error } = await supabase.from(GAMES_TABLE).delete().eq('id', gameId)
     if (error) throw error
-    await channelRef.current?.send({ type: 'broadcast', event: 'game-deleted', payload: {} })
-  }, [gameId])
+    await announceDeleted()
+  }, [announceDeleted, gameId])
 
   return {
     state,
@@ -254,5 +258,6 @@ export function useGame({ gameId, tabId, onNotice }: UseGameOptions) {
     broadcastDrag,
     broadcastDragEnd,
     deleteGame,
+    announceDeleted,
   }
 }

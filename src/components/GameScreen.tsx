@@ -41,6 +41,7 @@ import { HandOverlay } from './HandOverlay'
 import { InvitePanel } from './InvitePanel'
 import { ObjectiveHandOverlay } from './ObjectiveHandOverlay'
 import { ObjectiveRiver } from './ObjectiveRiver'
+import { ResetDatabase } from './ResetDatabase'
 import { EndgameView, type ObjectivePreview } from './EndgameView'
 import { SeatChooser } from './SeatChooser'
 
@@ -110,6 +111,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
     broadcastDrag,
     broadcastDragEnd,
     deleteGame,
+    announceDeleted,
   } = useGame({ gameId, tabId, onNotice: setMessage })
 
   // Derived from Presence: a seat held earlier by another tab wins; the last free seat is auto-assigned.
@@ -310,6 +312,12 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
     }
   }
 
+  const resetAfterDatabaseWipe = async () => {
+    await announceDeleted()
+    writeStored('session', seatKey, null)
+    onLeave()
+  }
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target instanceof HTMLElement ? event.target : null
@@ -452,6 +460,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
 
           <section className="panel legend">
             <h2 className="panel-title">Aide</h2>
+            <a className="action-button" href="/TABLE_1913_Regles_ludiques%201.pdf" target="_blank" rel="noreferrer">Consulter les règles ludiques (PDF)</a>
             <p>Clic sur un paquet : le sélectionner; glisser-déposer : le déplacer ou le fusionner avec un autre paquet</p>
             <p>Double-clic sur une pioche : piocher 1 carte; double-clic sur une carte visible : la retourner</p>
             <p><kbd>D</kbd> : piocher dans le paquet sélectionné (ou la pioche); <kbd>F</kbd> : retourner sa carte supérieure</p>
@@ -473,6 +482,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
             <button type="button" className="action-button" onClick={() => run(resetGame)}>Nouvelle partie</button>
             {seat && <button type="button" className="link-button" onClick={() => updateClaim(null)}>Changer de joueur</button>}
             <button type="button" className="danger-button" onClick={() => void purgeGame()}>Supprimer la partie</button>
+            {seat === 'bottom' && <ResetDatabase onReset={resetAfterDatabaseWipe} />}
           </section>
         </aside>
 
