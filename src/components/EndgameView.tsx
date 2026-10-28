@@ -6,6 +6,7 @@ import { scorePlayerRow } from '../game/scoring'
 import type { CampaignPawnId, Card, GameState, PlayerId, Point } from '../game/types'
 import { readStored, writeStored } from '../lib/storage'
 import { CampaignBoard } from './CampaignBoard'
+import { COUNTRY_PAWN_IMAGES, RESOURCE_PAWN_IMAGES } from './pawnImages'
 
 const ENDGAME_OBJECTIVE_MIME = 'application/x-nd1913-endgame-objective'
 
@@ -218,7 +219,8 @@ export function EndgameView({ gameId, state, activePlayer, canEdit, onPlayObject
             {groups.map((group, index) => (
               <li key={index}>
                 <p className="endgame-score-group-title">
-                  Camp de {group.country} · {group.cards.length} cartes · {group.completeRadios} radio{group.completeRadios > 1 ? 's' : ''} complète{group.completeRadios > 1 ? 's' : ''}
+                  {COUNTRY_PAWN_IMAGES[group.country] && <img className="endgame-score-pawn" src={COUNTRY_PAWN_IMAGES[group.country]} alt="" />}
+                  <span>Camp de {group.country} · {group.cards.length} cartes · {group.completeRadios} radio{group.completeRadios > 1 ? 's' : ''} complète{group.completeRadios > 1 ? 's' : ''}</span>
                 </p>
                 {group.invalidated && <p className="endgame-score-invalidated">Camp annulé : liaison avec un autre pays.</p>}
                 <p className="endgame-score-cards">{group.cards.map((card) => card.title).join(' · ')}</p>
@@ -226,7 +228,10 @@ export function EndgameView({ gameId, state, activePlayer, canEdit, onPlayObject
                   {RESOURCES.filter(({ id }) => group.resourceCounts[id] > 0)
                     .map(({ id, label }) => (
                       <div key={id} className="endgame-score-resource">
-                        <span>{label}</span>
+                        <span className="endgame-score-resource-name">
+                          <img src={RESOURCE_PAWN_IMAGES[id]} alt="" />
+                          {label}
+                        </span>
                         <small>{group.resourceCounts[id]} carte{group.resourceCounts[id] > 1 ? 's' : ''} × {group.completeRadios} radio{group.completeRadios > 1 ? 's' : ''}</small>
                         <strong>{group.scores[id]}</strong>
                       </div>

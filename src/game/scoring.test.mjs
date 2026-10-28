@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { CARD_DATA, cardCodeFromCsvId } from './cardData.ts'
 import { createInitialState, PLAYERS, playerRowSlotX, ROW_Y } from './logic.ts'
 import { scorePlayerRow } from './scoring.ts'
 
-function rowState(playerId, codesBySlot) {
+// Les cartes sont désignées par leur ID du CSV; Card.code est le numéro du fichier image.
+function rowState(playerId, csvIdsBySlot) {
   const state = createInitialState()
   state.piles = []
-  for (const [slot, code] of Object.entries(codesBySlot)) {
+  for (const [slot, csvId] of Object.entries(csvIdsBySlot)) {
+    const code = cardCodeFromCsvId(csvId)
     state.piles.push({
       id: `pile-${slot}`,
       x: playerRowSlotX(Number(slot)),
@@ -72,6 +75,14 @@ test('the top player row is read from left to right as that player sees it', () 
   // Joueur 2 voit sa ligne en miroir : le slot 1 du modèle est à sa gauche.
   assert.equal(scorePlayerRow(rowState('top', { 0: 9, 1: 17 }), 'top').groups[0]?.completeRadios, 2)
   assert.deepEqual(scorePlayerRow(rowState('top', { 0: 17, 1: 9 }), 'top').groups, [])
+})
+
+test('card data follows the image numbering of the cards on the table', () => {
+  // carte (31).jpg est le QUARTIER GÉNÉRAL BRITANNIQUE (ID 25), carte (6).jpg le PONT STRATÉGIQUE (ID 56).
+  assert.equal(CARD_DATA.get(31).title, 'QUARTIER GÉNÉRAL BRITANNIQUE')
+  assert.equal(CARD_DATA.get(6).title, 'PONT STRATÉGIQUE')
+  assert.deepEqual(CARD_DATA.get(6).resources, { money: false, population: true, logistics: false, transport: true })
+  assert.deepEqual([...CARD_DATA.keys()].sort((a, b) => a - b), Array.from({ length: 56 }, (_, index) => index + 1))
 })
 
 test('face-down cards and the other player row are ignored', () => {

@@ -15,7 +15,7 @@ export type CardData = {
   resources: Record<ResourceId, boolean>
 }
 
-// Source: 1913Vscode.csv. Radios: droite haut, gauche haut, droite bas, gauche bas. Ressources: argent, population, logistique, transport.
+// Source: 1913Vscode.csv (ID = première colonne). Radios: droite haut, gauche haut, droite bas, gauche bas. Ressources: argent, population, logistique, transport.
 const ROWS: [number, string, string, string, string][] = [
   [1, 'TRANCHÉES FRANÇAISES', 'France', '1111', '1000'],
   [2, 'FORT DE VERDUN', 'France', '1111', '1000'],
@@ -75,8 +75,13 @@ const ROWS: [number, string, string, string, string][] = [
   [56, 'PONT STRATÉGIQUE', 'Empire russe', '0110', '0101'],
 ]
 
-export const CARD_DATA = new Map<number, CardData>(ROWS.map(([code, title, country, radios, resources]) => [code, {
-  code,
+// Les fichiers carte (n).jpg, et donc Card.code, sont décalés de 6 par rapport à l'ID du CSV (image 7 = ID 1, image 1 = ID 51).
+export function cardCodeFromCsvId(csvId: number) {
+  return csvId <= 50 ? csvId + 6 : csvId - 50
+}
+
+export const CARD_DATA = new Map<number, CardData>(ROWS.map(([csvId, title, country, radios, resources]) => [cardCodeFromCsvId(csvId), {
+  code: cardCodeFromCsvId(csvId),
   title,
   country,
   radios: {
