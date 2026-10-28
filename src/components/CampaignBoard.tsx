@@ -2,13 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 
 import { PLAYERS } from '../game/logic'
 import type { CampaignPawnId, PlayerId, Point } from '../game/types'
 import boardImageUrl from '../assets/plateau/Mobilisation européenne, 1914.png'
-import factoryPawnUrl from '../assets/plateau/pion_piste_bleu_usine.png'
-import moneyPawnUrl from '../assets/plateau/pion_piste_jaune_monnaie.png'
-import industryPawnUrl from '../assets/plateau/pion_piste_rouge_industrie.png'
-import populationPawnUrl from '../assets/plateau/pion_piste_violet_population.png'
-import francePawnUrl from '../assets/plateau/pion_france.png'
-import unitedKingdomPawnUrl from '../assets/plateau/pion_royaumeuni.png'
-import russiaPawnUrl from '../assets/plateau/pion_russe.png'
+import { PAWN_IMAGES } from './pawnImages'
 
 type CampaignBoardProps = {
   playerId: PlayerId
@@ -26,13 +20,13 @@ type PawnDrag = {
 }
 
 const CAMPAIGN_PAWNS: { id: CampaignPawnId; label: string; image: string; enlarged?: boolean }[] = [
-  { id: 'money', label: 'Monnaie', image: moneyPawnUrl },
-  { id: 'population', label: 'Population', image: populationPawnUrl },
-  { id: 'industry', label: 'Industrie', image: industryPawnUrl },
-  { id: 'factory', label: 'Usine', image: factoryPawnUrl },
-  { id: 'france', label: 'France', image: francePawnUrl, enlarged: true },
-  { id: 'unitedKingdom', label: 'Royaume-Uni', image: unitedKingdomPawnUrl, enlarged: true },
-  { id: 'russia', label: 'Russie', image: russiaPawnUrl, enlarged: true },
+  { id: 'money', label: 'Monnaie', image: PAWN_IMAGES.money },
+  { id: 'population', label: 'Population', image: PAWN_IMAGES.population },
+  { id: 'industry', label: 'Industrie', image: PAWN_IMAGES.industry },
+  { id: 'factory', label: 'Usine', image: PAWN_IMAGES.factory },
+  { id: 'france', label: 'France', image: PAWN_IMAGES.france, enlarged: true },
+  { id: 'unitedKingdom', label: 'Royaume-Uni', image: PAWN_IMAGES.unitedKingdom, enlarged: true },
+  { id: 'russia', label: 'Russie', image: PAWN_IMAGES.russia, enlarged: true },
 ]
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
