@@ -464,6 +464,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
             <p>Plateaux de mobilisation : glisser ses pions; dans la vue de fin, les deux plateaux sont modifiables</p>
             <p>Dans « Mains cachées » : afficher/masquer les mains adverses, sa main objectifs et les deux plateaux</p>
             <p>« Vue de fin de partie » dans l'en-tête : comparer les objectifs et plateaux; « Retour à la partie » revient au jeu</p>
+            <p>Fin de manche : dans chaque groupe de cartes voisines reliées par des radios complètes, chaque ressource rapporte radios complètes × cartes portant cette ressource</p>
             <p>Molette, pincement ou <kbd>+</kbd> <kbd>−</kbd> : zoom · <kbd>0</kbd> : ajuster; glisser le fond pour déplacer la vue</p>
           </section>
 
@@ -481,6 +482,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
               key={gameId}
               gameId={gameId}
               state={state}
+              activePlayer={viewerSeat}
               canEdit={Boolean(seat)}
               onPlayObjective={playEndgameObjective}
               onReturnObjective={returnEndgameObjective}

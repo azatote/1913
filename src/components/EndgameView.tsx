@@ -1,6 +1,8 @@
 import { useState, type DragEvent } from 'react'
+import { RESOURCES } from '../game/cardData'
 import { cardFaceUrl } from '../game/cards'
-import { BOARD_WIDTH, OBJECTIVE_ROW_INDEX, PLAYERS, PLAYER_IDS, nearestRowIndex, objectiveRowY } from '../game/logic'
+import { BOARD_WIDTH, OBJECTIVE_ROW_INDEX, PLAYERS, PLAYER_IDS, nearestRowIndex, objectiveRowY, opponentOf } from '../game/logic'
+import { scorePlayerRow } from '../game/scoring'
 import type { CampaignPawnId, Card, GameState, PlayerId, Point } from '../game/types'
 import { readStored, writeStored } from '../lib/storage'
 import { CampaignBoard } from './CampaignBoard'
@@ -15,6 +17,7 @@ export type ObjectivePreview = { card: Card; playerId: PlayerId; source: 'hand' 
 type EndgameViewProps = {
   gameId: string
   state: GameState
+  activePlayer: PlayerId
   canEdit: boolean
   onPlayObjective: (sourcePlayerId: PlayerId, cardId: string, targetPlayerId: PlayerId, position: Point) => void
   onReturnObjective: (pileId: string, cardId: string, playerId: PlayerId) => void
@@ -61,7 +64,8 @@ function allowObjectiveDrop(event: DragEvent, canEdit: boolean) {
   event.dataTransfer.dropEffect = 'move'
 }
 
-export function EndgameView({ gameId, state, canEdit, onPlayObjective, onReturnObjective, onPreviewObjective, onMovePawn }: EndgameViewProps) {
+export function EndgameView({ gameId, state, activePlayer, canEdit, onPlayObjective, onReturnObjective, onPreviewObjective, onMovePawn }: EndgameViewProps) {
+  const playerOrder = [activePlayer, opponentOf(activePlayer)]
   const [savedRows, setSavedRows] = useState<ObjectiveRows>(() => ({
     bottom: loadObjectiveRows(gameId, 'bottom'),
     top: loadObjectiveRows(gameId, 'top'),
@@ -202,6 +206,50 @@ export function EndgameView({ gameId, state, canEdit, onPlayObjective, onReturnO
     )
   }
 
+  const renderRoundScore = (playerId: PlayerId) => {
+    const { groups, impossibleConnections } = scorePlayerRow(state, playerId)
+    return (
+      <section key={`score-${playerId}`} className="endgame-round-score" aria-label={`Fin de manche de ${PLAYERS[playerId].label}`}>
+        <h2>{PLAYERS[playerId].label} · Fin de manche</h2>
+        {groups.length === 0 ? (
+          <p className="endgame-score-empty">Aucun camp relié par une radio complète.</p>
+        ) : (
+          <ol className="endgame-score-groups">
+            {groups.map((group, index) => (
+              <li key={index}>
+                <p className="endgame-score-group-title">
+                  Camp de {group.country} · {group.cards.length} cartes · {group.completeRadios} radio{group.completeRadios > 1 ? 's' : ''} complète{group.completeRadios > 1 ? 's' : ''}
+                </p>
+                {group.invalidated && <p className="endgame-score-invalidated">Camp annulé : liaison avec un autre pays.</p>}
+                <p className="endgame-score-cards">{group.cards.map((card) => card.title).join(' · ')}</p>
+                <div className="endgame-score-resources">
+                  {RESOURCES.filter(({ id }) => group.resourceCounts[id] > 0)
+                    .map(({ id, label }) => (
+                      <div key={id} className="endgame-score-resource">
+                        <span>{label}</span>
+                        <small>{group.resourceCounts[id]} carte{group.resourceCounts[id] > 1 ? 's' : ''} × {group.completeRadios} radio{group.completeRadios > 1 ? 's' : ''}</small>
+                        <strong>{group.scores[id]}</strong>
+                      </div>
+                    ))}
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+        {impossibleConnections.length > 0 && (
+          <aside className="endgame-impossible-connections" aria-label="Liaisons radio impossibles entre pays">
+            <h3>Liaisons impossibles</h3>
+            {impossibleConnections.map(({ leftCard, rightCard, radios }, index) => (
+              <p key={`${leftCard.code}-${rightCard.code}-${index}`}>
+                {leftCard.country} · {leftCard.title} ↔ {rightCard.country} · {rightCard.title} : {radios} radio{radios > 1 ? 's' : ''} complète{radios > 1 ? 's' : ''}, liaison interdite; les deux camps sont annulés
+              </p>
+            ))}
+          </aside>
+        )}
+      </section>
+    )
+  }
+
   return (
     <div className="endgame-view">
       <header className="endgame-view-header">
@@ -209,16 +257,19 @@ export function EndgameView({ gameId, state, canEdit, onPlayObjective, onReturnO
         <p>Les objectifs et les pions restent liés à la partie et peuvent être modifiés.</p>
       </header>
       <div className="endgame-matrix">
-        {PLAYER_IDS.map(renderObjectives)}
-        {PLAYER_IDS.map((playerId) => (
+        {playerOrder.map(renderRoundScore)}
+        {playerOrder.map(renderObjectives)}
+        {playerOrder.map((playerId) => (
           <section key={playerId} className="endgame-campaign" aria-label={`Plateau de mobilisation de ${PLAYERS[playerId].label}`}>
             <h2>{PLAYERS[playerId].label} · Mobilisation</h2>
             <CampaignBoard
               playerId={playerId}
               positions={state.campaignPawns[playerId]}
               rotated={false}
-              readOnly={!canEdit}
-              onMovePawn={(pawnId: CampaignPawnId, position) => onMovePawn(playerId, pawnId, position)}
+              readOnly={!canEdit || playerId !== activePlayer}
+              onMovePawn={(pawnId: CampaignPawnId, position) => {
+                if (canEdit && playerId === activePlayer) onMovePawn(playerId, pawnId, position)
+              }}
             />
           </section>
         ))}
