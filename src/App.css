@@ -597,10 +597,27 @@ button.objective-river-slot.is-selected { box-shadow: 0 0 0 2px var(--accent); }
 .endgame-view-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .endgame-view-header p { margin: 0; color: var(--muted); font-size: 13px; }
 .endgame-matrix { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 14px; }
+.endgame-round-score,
 .endgame-objectives,
 .endgame-campaign { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+.endgame-round-score h2,
 .endgame-objectives h2,
 .endgame-campaign h2 { margin: 0 0 10px; color: var(--ink); font: 600 14px var(--display); }
+.endgame-score-empty { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
+.endgame-score-groups { display: grid; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
+.endgame-score-groups li { padding: 8px; border: 1px dashed var(--line); border-radius: 6px; background: var(--board-bg); }
+.endgame-score-groups p { margin: 0; font-size: 12px; }
+.endgame-score-group-title { color: var(--ink); font-weight: 600; }
+.endgame-score-invalidated { margin-top: 3px !important; color: var(--danger); font-weight: 700; }
+.endgame-score-cards { color: var(--muted); }
+.endgame-score-resources { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.endgame-score-resource { display: grid; grid-template-columns: 1fr auto; align-items: baseline; column-gap: 12px; min-width: 128px; padding: 7px 10px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 6px; background: var(--accent-soft); color: var(--ink); font-size: 12px; }
+.endgame-score-resource small { color: var(--muted); font-size: 11px; }
+.endgame-score-resource strong { grid-column: 2; grid-row: 1 / span 2; color: var(--accent); font: 800 24px/1 var(--display); font-variant-numeric: tabular-nums; }
+.endgame-impossible-connections { margin-top: 10px; padding: 9px 10px; border: 1px solid var(--danger-line); border-radius: 6px; color: var(--danger); background: var(--danger-soft); }
+.endgame-impossible-connections h3 { margin: 0 0 5px; font-size: 12px; font-weight: 700; }
+.endgame-impossible-connections p { margin: 0; font-size: 12px; line-height: 1.4; }
+.endgame-impossible-connections p + p { margin-top: 4px; }
 .endgame-objectives { min-height: 132px; border-style: dashed; background: var(--board-bg); }
 .endgame-objectives h2 { display: flex; justify-content: space-between; gap: 8px; }
 .endgame-objectives h2 span { font-variant-numeric: tabular-nums; }
