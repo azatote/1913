@@ -221,7 +221,7 @@ export function EndgameView({ gameId, state, activePlayer, canEdit, onPlayObject
               <li key={index}>
                 <p className="endgame-score-group-title">
                   {COUNTRY_PAWN_IMAGES[group.country] && <img className="endgame-score-pawn" src={COUNTRY_PAWN_IMAGES[group.country]} alt="" />}
-                  <span>Camp de {group.country} · {group.cards.length} cartes · {group.completeRadios} radio{group.completeRadios > 1 ? 's' : ''} complète{group.completeRadios > 1 ? 's' : ''}</span>
+                  <span>Camp de {group.country} · {group.cards.length} cartes · {group.completeRadios} radio{group.completeRadios > 1 ? 's' : ''} complète{group.completeRadios > 1 ? 's' : ''}{group.tokenRadios > 0 && ` (dont ${group.tokenRadios} par jeton${group.tokenRadios > 1 ? 's' : ''})`}</span>
                 </p>
                 {group.invalidated && <p className="endgame-score-invalidated">Camp annulé : liaison avec un autre pays.</p>}
                 <p className="endgame-score-cards">{group.cards.map((card) => card.title).join(' · ')}</p>
