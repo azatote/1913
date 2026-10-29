@@ -29,6 +29,7 @@ import {
   resetGame,
   shufflePile,
 } from '../game/logic'
+import { advanceResourceTrack } from '../game/campaignTracks'
 import type { ActionResult, CampaignPawnId, Card, GameState, PlayerId, Point } from '../game/types'
 import { useGame, type PresencePlayer } from '../game/useGame'
 import { errorMessage } from '../lib/errors'
@@ -498,6 +499,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
               onReturnObjective={returnEndgameObjective}
               onPreviewObjective={previewEndgameObjective}
               onMovePawn={(playerId, pawnId, position) => run((draft) => moveCampaignPawn(draft, playerId, pawnId, position))}
+              onAdvanceTrack={(playerId, resource, steps) => run((draft) => advanceResourceTrack(draft, playerId, resource, steps))}
             />
           ) : (
           <div className="playfield-layout">
