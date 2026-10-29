@@ -1,5 +1,5 @@
 import { useState, type DragEvent } from 'react'
-import { RESOURCES } from '../game/cardData'
+import { RESOURCES, type ResourceId } from '../game/cardData'
 import { cardFaceUrl } from '../game/cards'
 import { BOARD_WIDTH, OBJECTIVE_ROW_INDEX, PLAYERS, PLAYER_IDS, nearestRowIndex, objectiveRowY, opponentOf } from '../game/logic'
 import { scorePlayerRow } from '../game/scoring'
@@ -24,6 +24,7 @@ type EndgameViewProps = {
   onReturnObjective: (pileId: string, cardId: string, playerId: PlayerId) => void
   onPreviewObjective: (selection: ObjectivePreview) => void
   onMovePawn: (playerId: PlayerId, pawnId: CampaignPawnId, position: Point) => void
+  onAdvanceTrack: (playerId: PlayerId, resource: ResourceId, steps: number) => void
 }
 
 function readDragPayload<T>(event: DragEvent, mimeType: string): T | null {
@@ -65,7 +66,7 @@ function allowObjectiveDrop(event: DragEvent, canEdit: boolean) {
   event.dataTransfer.dropEffect = 'move'
 }
 
-export function EndgameView({ gameId, state, activePlayer, canEdit, onPlayObjective, onReturnObjective, onPreviewObjective, onMovePawn }: EndgameViewProps) {
+export function EndgameView({ gameId, state, activePlayer, canEdit, onPlayObjective, onReturnObjective, onPreviewObjective, onMovePawn, onAdvanceTrack }: EndgameViewProps) {
   const playerOrder = [activePlayer, opponentOf(activePlayer)]
   const [savedRows, setSavedRows] = useState<ObjectiveRows>(() => ({
     bottom: loadObjectiveRows(gameId, 'bottom'),
@@ -227,14 +228,21 @@ export function EndgameView({ gameId, state, activePlayer, canEdit, onPlayObject
                 <div className="endgame-score-resources">
                   {RESOURCES.filter(({ id }) => group.resourceCounts[id] > 0)
                     .map(({ id, label }) => (
-                      <div key={id} className="endgame-score-resource">
+                      <button
+                        key={id}
+                        type="button"
+                        className="endgame-score-resource"
+                        disabled={!canEdit || playerId !== activePlayer || group.scores[id] === 0}
+                        title={`Avancer le pion ${label} de ${group.scores[id]} case${group.scores[id] > 1 ? 's' : ''} sur le plateau de mobilisation`}
+                        onClick={() => onAdvanceTrack(playerId, id, group.scores[id])}
+                      >
                         <span className="endgame-score-resource-name">
                           <img src={RESOURCE_PAWN_IMAGES[id]} alt="" />
                           {label}
                         </span>
                         <small>{group.resourceCounts[id]} carte{group.resourceCounts[id] > 1 ? 's' : ''} × {group.completeRadios} radio{group.completeRadios > 1 ? 's' : ''}</small>
                         <strong>{group.scores[id]}</strong>
-                      </div>
+                      </button>
                     ))}
                 </div>
               </li>
