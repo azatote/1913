@@ -35,6 +35,13 @@ export function trackResourceAmount(state: GameState, playerId: PlayerId, resour
   return nearestTrackCell(state.campaignPawns[playerId][RESOURCE_TRACK_PAWNS[resource]].x)
 }
 
+// The pawn goes back by `steps` cells and stops on the first cell.
+export function spendResourceTrack(state: GameState, playerId: PlayerId, resource: ResourceId, steps: number) {
+  const pawnId = RESOURCE_TRACK_PAWNS[resource]
+  const to = Math.max(1, nearestTrackCell(state.campaignPawns[playerId][pawnId].x) - steps)
+  state.campaignPawns[playerId][pawnId] = { x: TRACK_CELL_X[to - 1], y: CAMPAIGN_PAWN_STARTS[pawnId].y }
+}
+
 export function advanceResourceTrack(state: GameState, playerId: PlayerId, resource: ResourceId, steps: number): ActionResult {
   const pawnId = RESOURCE_TRACK_PAWNS[resource]
   const label = RESOURCES.find(({ id }) => id === resource)?.label ?? resource

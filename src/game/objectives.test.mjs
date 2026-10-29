@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { advanceResourceTrack } from './campaignTracks.ts'
+import { advanceResourceTrack, nearestTrackCell } from './campaignTracks.ts'
 import { createInitialState } from './logic.ts'
 import { objectiveCost } from './objectiveData.ts'
 import { missingObjectiveResources, takeObjectiveToHand } from './objectives.ts'
@@ -40,6 +40,25 @@ test('the objective goes to the hand once the board holds enough of each resourc
   assert.deepEqual(missingObjectiveResources(state, 'bottom', 18), [])
   assert.equal(takeObjectiveToHand(state, pile.id, 'bottom').ok, true)
   assert.equal(state.objectiveHands.bottom.length, 1)
+})
+
+test('the resources are spent: pawns go back by the cost, never below the first cell', () => {
+  const { state, pile } = riverWith(24)
+  const before = structuredClone(state.campaignPawns)
+  advanceResourceTrack(state, 'bottom', 'population', 11)
+  assert.equal(nearestTrackCell(state.campaignPawns.bottom.population.x), 12)
+
+  const result = takeObjectiveToHand(state, pile.id, 'bottom')
+  assert.equal(result.ok, true)
+  assert.match(result.message, /Population −4/)
+  assert.equal(nearestTrackCell(state.campaignPawns.bottom.population.x), 8)
+  assert.deepEqual(state.campaignPawns.bottom.money, before.bottom.money)
+  assert.deepEqual(state.campaignPawns.top, before.top)
+
+  const full = riverWith(18)
+  advanceResourceTrack(full.state, 'top', 'money', 7)
+  assert.equal(takeObjectiveToHand(full.state, full.pile.id, 'top').ok, true)
+  assert.equal(nearestTrackCell(full.state.campaignPawns.top.money.x), 1)
 })
 
 test('the resources checked are those of the player receiving the card', () => {
