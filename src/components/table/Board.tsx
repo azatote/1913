@@ -256,7 +256,7 @@ export function Board({
             const hostModel = token.attachedTo ? pileModels.get(token.attachedTo.pileId) : undefined
             let view = tokenViewRect(token, hostModel, remoteDrags[token.id], mirrored)
             if (stackIndex !== undefined && !remoteDrags[token.id]) view = stackedTokenView(view, stackIndex)
-            if (isDragging) view = { ...view, ...tokenDrag.view, scale: 1 }
+            if (isDragging) view = { ...view, ...tokenDrag.view, scale: tokenDrag.scale }
             return (
               <RadioTokenView
                 key={token.id}

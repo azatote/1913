@@ -2,7 +2,7 @@ import { useCallback, useLayoutEffect, useRef, useState, type PointerEvent as Re
 import { RADIO_TOKEN_HEIGHT, RADIO_TOKEN_WIDTH } from '../../game/logic'
 import type { GameState, Point, RadioPlacement } from '../../game/types'
 import { mirrorBox } from './boardGeometry'
-import { placementFromView, tokenViewRect } from './radioGeometry'
+import { placementFromView, attachedViewRect, tokenViewRect } from './radioGeometry'
 
 const DRAG_THRESHOLD_PX = 4
 
@@ -16,7 +16,7 @@ type TokenDragSession = {
   view: Point
 }
 
-export type TokenDragPreview = { tokenId: string; view: Point }
+export type TokenDragPreview = { tokenId: string; view: Point; scale: number }
 
 type RadioTokenDragOptions = {
   state: GameState
@@ -74,8 +74,17 @@ export function useRadioTokenDrag({ state, mirrored, remoteDrags, pointerToView,
     scrollNearEdge(event.clientX, event.clientY)
     const pointer = pointerToView(event.clientX, event.clientY)
     drag.view = { x: pointer.x - drag.grab.x * RADIO_TOKEN_WIDTH, y: pointer.y - drag.grab.y * RADIO_TOKEN_HEIGHT }
-    setTokenDrag({ tokenId, view: drag.view })
-    const { mirrored: isMirrored, onDragMove: notify } = latestRef.current
+    const { state: current, mirrored: isMirrored, remoteDrags: remote, onDragMove: notify } = latestRef.current
+
+    // Over a card the token is shown where it would snap, at the card's scale.
+    const placement = placementFromView(drag.view, current.piles, isMirrored)
+    const host = 'pileId' in placement ? current.piles.find((pile) => pile.id === placement.pileId) : undefined
+    if ('pileId' in placement && host) {
+      const snapped = attachedViewRect(remote[host.id] ?? host, placement.dx, placement.dy, isMirrored)
+      setTokenDrag({ tokenId, view: { x: snapped.x, y: snapped.y }, scale: snapped.scale })
+    } else {
+      setTokenDrag({ tokenId, view: drag.view, scale: 1 })
+    }
     notify(tokenId, mirrorBox(drag.view, RADIO_TOKEN_WIDTH, RADIO_TOKEN_HEIGHT, isMirrored))
   }, [pointerToView, scrollNearEdge])
 

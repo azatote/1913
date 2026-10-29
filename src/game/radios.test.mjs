@@ -4,6 +4,7 @@ import {
   RADIO_STACK_HOME,
   RADIO_TOKEN_COUNT,
   RADIO_TOKEN_HEIGHT,
+  RADIO_TOKEN_WIDTH,
   CARD_HEIGHT,
   CARD_WIDTH,
   PLAYERS,
@@ -14,7 +15,7 @@ import {
   parseGameState,
   playerRowSlotX,
 } from './logic.ts'
-import { placeRadioToken } from './radios.ts'
+import { nearestRadioSlot, placeRadioToken } from './radios.ts'
 
 function stateWithRowCard() {
   const state = createInitialState()
@@ -33,17 +34,26 @@ test('ten radio tokens start stacked, a fifth of a card high plus 20%', () => {
   assert.ok(state.topZ >= Math.max(...state.radioTokens.map((token) => token.z)))
 })
 
-test('a token dropped on a player row card sticks to it inside the card', () => {
+test('a token dropped on a player row card straddles its rim at a radio spot', () => {
   const { state, pile } = stateWithRowCard()
   const token = state.radioTokens[0]
 
   assert.equal(placeRadioToken(state, token.id, { pileId: pile.id, dx: 500, dy: -30 }).ok, true)
   assert.equal(token.attachedTo.pileId, pile.id)
-  assert.ok(token.attachedTo.dx > 0 && token.attachedTo.dx < CARD_WIDTH)
-  assert.equal(token.attachedTo.dy, 0)
+  assert.equal(token.attachedTo.dx + RADIO_TOKEN_WIDTH / 2, CARD_WIDTH)
+  assert.ok(Math.abs(token.attachedTo.dy + RADIO_TOKEN_HEIGHT / 2 - (2.76 / 8.8) * CARD_HEIGHT) < 1e-9)
+
+  placeRadioToken(state, token.id, { pileId: pile.id, dx: 10, dy: 200 })
+  assert.equal(token.attachedTo.dx + RADIO_TOKEN_WIDTH / 2, 0)
+  assert.ok(Math.abs(token.attachedTo.dy + RADIO_TOKEN_HEIGHT / 2 - (6.06 / 8.8) * CARD_HEIGHT) < 1e-9)
 
   movePile(state, pile.id, { x: playerRowSlotX(5), y: pile.y })
   assert.equal(token.attachedTo.pileId, pile.id)
+})
+
+test('radio spots are the left and right rims at the upper and lower radio heights', () => {
+  assert.deepEqual(nearestRadioSlot({ x: 20, y: 0 }), { x: 0, y: (2.76 / 8.8) * CARD_HEIGHT })
+  assert.deepEqual(nearestRadioSlot({ x: CARD_WIDTH - 5, y: CARD_HEIGHT }), { x: CARD_WIDTH, y: (6.06 / 8.8) * CARD_HEIGHT })
 })
 
 test('a token cannot stick to a card outside the player rows', () => {
@@ -70,10 +80,11 @@ test('tokens stay on the table where the card was when the card leaves it', () =
   const { state, pile } = stateWithRowCard()
   const token = state.radioTokens[0]
   placeRadioToken(state, token.id, { pileId: pile.id, dx: 40, dy: 60 })
+  const { dx, dy } = token.attachedTo
 
   assert.equal(movePileToHand(state, pile.id, 'bottom').ok, true)
   assert.equal(token.attachedTo, null)
-  assert.deepEqual([token.x, token.y], [pile.x + 40, pile.y + 60])
+  assert.deepEqual([token.x, token.y], [pile.x + dx, pile.y + dy])
 })
 
 test('old games without tokens get a fresh stack and dangling attachments are released', () => {
