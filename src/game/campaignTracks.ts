@@ -42,6 +42,16 @@ export function spendResourceTrack(state: GameState, playerId: PlayerId, resourc
   state.campaignPawns[playerId][pawnId] = { x: TRACK_CELL_X[to - 1], y: CAMPAIGN_PAWN_STARTS[pawnId].y }
 }
 
+export function retreatResourceTrack(state: GameState, playerId: PlayerId, resource: ResourceId, steps: number): ActionResult {
+  const label = RESOURCES.find(({ id }) => id === resource)?.label ?? resource
+  const from = trackResourceAmount(state, playerId, resource)
+  if (steps <= 0 || from <= 1) return { ok: false, message: `${label} : le pion est déjà sur la première case.` }
+
+  spendResourceTrack(state, playerId, resource, steps)
+  const to = trackResourceAmount(state, playerId, resource)
+  return { ok: true, message: `${label} : le pion recule de ${from - to} case${from - to > 1 ? 's' : ''} (case ${to}).` }
+}
+
 export function advanceResourceTrack(state: GameState, playerId: PlayerId, resource: ResourceId, steps: number): ActionResult {
   const pawnId = RESOURCE_TRACK_PAWNS[resource]
   const label = RESOURCES.find(({ id }) => id === resource)?.label ?? resource

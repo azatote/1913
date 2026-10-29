@@ -406,14 +406,29 @@ kbd {
 }
 .resource-recap li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 3px 6px;
+  gap: 2px 6px;
+  padding: 3px 4px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
 }
+.resource-value { display: inline-flex; align-items: center; gap: 6px; }
+.resource-step {
+  min-width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  color: var(--ink);
+  background: transparent;
+  font: 600 16px/1 var(--sans);
+  cursor: pointer;
+}
+.resource-step:hover:not(:disabled) { color: var(--accent); background: var(--accent-soft); }
+.resource-step:disabled { opacity: 0.35; cursor: default; }
 .resource-recap img { flex: none; width: 20px; height: 20px; object-fit: contain; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5)); }
 .resource-recap strong { min-width: 1.4ch; font: 800 17px/1 var(--display); font-variant-numeric: tabular-nums; }
 .resource-money strong { color: #d99a00; }
