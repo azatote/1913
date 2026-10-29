@@ -14,7 +14,6 @@ import {
   isPileFaceUp,
   isPlayerId,
   moveCampaignPawn,
-  moveObjectiveToHand,
   moveObjectiveCardToHand,
   moveObjectiveToPile,
   movePlayerRowGroup,
@@ -30,6 +29,7 @@ import {
   shufflePile,
 } from '../game/logic'
 import { advanceResourceTrack } from '../game/campaignTracks'
+import { takeObjectiveToHand as takeObjective } from '../game/objectives'
 import type { ActionResult, CampaignPawnId, Card, GameState, PlayerId, Point } from '../game/types'
 import { useGame, type PresencePlayer } from '../game/useGame'
 import { errorMessage } from '../lib/errors'
@@ -184,7 +184,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
   }
 
   const takeObjectiveToHand = (objectivePileId: string, playerId: PlayerId) => {
-    const result = run((draft) => moveObjectiveToHand(draft, objectivePileId, playerId))
+    const result = run((draft) => takeObjective(draft, objectivePileId, playerId))
     if (result.ok) setSelectedObjectivePileId(null)
   }
 

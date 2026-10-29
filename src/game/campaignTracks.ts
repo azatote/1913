@@ -30,6 +30,11 @@ export function nearestTrackCell(x: number) {
   return nearest + 1
 }
 
+// A resource is worth the number of the cell its pawn stands on.
+export function trackResourceAmount(state: GameState, playerId: PlayerId, resource: ResourceId) {
+  return nearestTrackCell(state.campaignPawns[playerId][RESOURCE_TRACK_PAWNS[resource]].x)
+}
+
 export function advanceResourceTrack(state: GameState, playerId: PlayerId, resource: ResourceId, steps: number): ActionResult {
   const pawnId = RESOURCE_TRACK_PAWNS[resource]
   const label = RESOURCES.find(({ id }) => id === resource)?.label ?? resource
