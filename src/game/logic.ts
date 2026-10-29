@@ -53,8 +53,8 @@ export const PLAYERS: Record<PlayerId, { label: string; rowIndex: number }> = {
 export const PLAYER_IDS: PlayerId[] = ['bottom', 'top']
 
 export const RADIO_TOKEN_COUNT = 10
-// A token is a fifth of a card high; its width keeps the ratio of radios.png (168 x 235).
-export const RADIO_TOKEN_HEIGHT = CARD_HEIGHT / 5
+// A token is a fifth of a card high, enlarged by 20%; its width keeps the ratio of radios.png (168 x 235).
+export const RADIO_TOKEN_HEIGHT = (CARD_HEIGHT / 5) * 1.2
 export const RADIO_TOKEN_WIDTH = (RADIO_TOKEN_HEIGHT * 168) / 235
 export const RADIO_STACK_HOME: Point = { x: 220, y: Math.round(ROW_Y[ROW_INDEX.center] + (CARD_HEIGHT - RADIO_TOKEN_HEIGHT) / 2) }
 

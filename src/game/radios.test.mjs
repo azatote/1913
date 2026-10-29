@@ -23,11 +23,11 @@ function stateWithRowCard() {
   return { state, pile }
 }
 
-test('ten radio tokens start stacked, one fifth of a card high', () => {
+test('ten radio tokens start stacked, a fifth of a card high plus 20%', () => {
   const state = createInitialState()
 
   assert.equal(state.radioTokens.length, RADIO_TOKEN_COUNT)
-  assert.equal(RADIO_TOKEN_HEIGHT * 5, CARD_HEIGHT)
+  assert.ok(Math.abs(RADIO_TOKEN_HEIGHT - (CARD_HEIGHT / 5) * 1.2) < 1e-9)
   assert.ok(state.radioTokens.every((token) => token.x === RADIO_STACK_HOME.x && token.y === RADIO_STACK_HOME.y && !token.attachedTo))
   assert.equal(new Set(state.radioTokens.map((token) => token.z)).size, RADIO_TOKEN_COUNT)
   assert.ok(state.topZ >= Math.max(...state.radioTokens.map((token) => token.z)))
