@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { CARD_DATA, cardCodeFromCsvId } from './cardData.ts'
-import { createInitialState, PLAYERS, playerRowSlotX, ROW_Y } from './logic.ts'
+import { CARD_HEIGHT, CARD_WIDTH, createInitialState, PLAYERS, playerRowSlotX, ROW_Y } from './logic.ts'
+import { placeRadioToken } from './radios.ts'
 import { scorePlayerRow } from './scoring.ts'
 
 // Les cartes sont désignées par leur ID du CSV; Card.code est le numéro du fichier image.
@@ -91,4 +92,55 @@ test('face-down cards and the other player row are ignored', () => {
 
   assert.deepEqual(scorePlayerRow(state, 'bottom').groups, [])
   assert.deepEqual(scorePlayerRow(rowState('bottom', { 0: 1, 1: 2 }), 'top').groups, [])
+})
+
+function addRimToken(state, slot, side, height) {
+  const token = state.radioTokens.find((entry) => !entry.attachedTo)
+  const dx = side === 'left' ? 0 : CARD_WIDTH
+  const dy = height === 'top' ? 0 : CARD_HEIGHT
+  assert.equal(placeRadioToken(state, token.id, { pileId: `pile-${slot}`, dx, dy }).ok, true)
+}
+
+test('a radio token on the rim between two cards makes the radio complete', () => {
+  // 5 et 7 ne se relient pas (demi-radios à des hauteurs différentes).
+  const state = rowState('bottom', { 0: 5, 1: 7 })
+  assert.deepEqual(scorePlayerRow(state, 'bottom').groups, [])
+
+  addRimToken(state, 0, 'right', 'top')
+  const { groups } = scorePlayerRow(state, 'bottom')
+  assert.equal(groups.length, 1)
+  assert.equal(groups[0].completeRadios, 1)
+  assert.equal(groups[0].tokenRadios, 1)
+
+  // Le même rebord vu depuis l'autre carte, à l'autre hauteur : une seconde radio.
+  addRimToken(state, 1, 'left', 'bottom')
+  assert.equal(scorePlayerRow(state, 'bottom').groups[0].completeRadios, 2)
+
+  // Un deuxième jeton au même endroit ne compte pas deux fois.
+  addRimToken(state, 0, 'right', 'top')
+  assert.equal(scorePlayerRow(state, 'bottom').groups[0].completeRadios, 2)
+})
+
+test('a token on a rim already completed by the cards adds nothing, and a token on an outer rim is ignored', () => {
+  const state = rowState('bottom', { 0: 17, 1: 9 })
+  const before = scorePlayerRow(state, 'bottom').groups[0].completeRadios
+
+  addRimToken(state, 0, 'right', 'top')
+  addRimToken(state, 0, 'left', 'bottom')
+  const [group] = scorePlayerRow(state, 'bottom').groups
+  assert.equal(group.completeRadios, before)
+  assert.equal(group.tokenRadios, 0)
+})
+
+test('rim tokens are read from the top player point of view too', () => {
+  const state = rowState('top', { 0: 5, 1: 7 })
+  assert.deepEqual(scorePlayerRow(state, 'top').groups, [])
+
+  addRimToken(state, 0, 'right', 'bottom')
+  assert.equal(scorePlayerRow(state, 'top').groups[0].completeRadios, 1)
+
+  // Un jeton sur un autre rebord de la ligne ne relie pas ces deux cartes.
+  const other = rowState('top', { 0: 5, 1: 7, 3: 17 })
+  addRimToken(other, 3, 'right', 'top')
+  assert.deepEqual(scorePlayerRow(other, 'top').groups, [])
 })

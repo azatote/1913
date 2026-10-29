@@ -1,4 +1,5 @@
 import { type CSSProperties, type DragEvent } from 'react'
+import { TRACK_LENGTH } from '../game/campaignTracks'
 import { RESOURCES, type ResourceId } from '../game/cardData'
 import { cardImageUrl } from '../game/cards'
 import { CARD_HEIGHT, CARD_WIDTH, OBJECTIVE_MARKET_SIZE } from '../game/logic'
@@ -12,10 +13,12 @@ type ObjectiveRiverProps = {
   selectedPileId: string | null
   boardScale: number
   resources: Record<ResourceId, number>
+  canAdjustResources: boolean
   onSelect: (pileId: string) => void
+  onAdjustResource: (resource: ResourceId, delta: 1 | -1) => void
 }
 
-export function ObjectiveRiver({ piles, drawPileId, selectedPileId, boardScale, resources, onSelect }: ObjectiveRiverProps) {
+export function ObjectiveRiver({ piles, drawPileId, selectedPileId, boardScale, resources, canAdjustResources, onSelect, onAdjustResource }: ObjectiveRiverProps) {
   const cardWidth = CARD_HEIGHT * boardScale
   const cardHeight = CARD_WIDTH * boardScale
   const riverStyle = {
@@ -39,8 +42,28 @@ export function ObjectiveRiver({ piles, drawPileId, selectedPileId, boardScale, 
       <ul className="resource-recap" aria-label="Ressources de votre plateau">
         {RESOURCES.map(({ id, label }) => (
           <li key={id} className={`resource-${id}`} title={`${label} : ${resources[id]}`} aria-label={`${label} : ${resources[id]}`}>
-            <img src={RESOURCE_PAWN_IMAGES[id]} alt="" />
-            <strong>{resources[id]}</strong>
+            <button
+              type="button"
+              className="resource-step"
+              aria-label={`Diminuer ${label}`}
+              disabled={!canAdjustResources || resources[id] <= 1}
+              onClick={() => onAdjustResource(id, -1)}
+            >
+              −
+            </button>
+            <span className="resource-value">
+              <img src={RESOURCE_PAWN_IMAGES[id]} alt="" />
+              <strong>{resources[id]}</strong>
+            </span>
+            <button
+              type="button"
+              className="resource-step"
+              aria-label={`Augmenter ${label}`}
+              disabled={!canAdjustResources || resources[id] >= TRACK_LENGTH}
+              onClick={() => onAdjustResource(id, 1)}
+            >
+              +
+            </button>
           </li>
         ))}
       </ul>

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { advanceResourceTrack, nearestTrackCell, TRACK_CELL_X, TRACK_LENGTH } from './campaignTracks.ts'
+import { advanceResourceTrack, nearestTrackCell, retreatResourceTrack, TRACK_CELL_X, TRACK_LENGTH } from './campaignTracks.ts'
 import { CAMPAIGN_PAWN_STARTS, createInitialState } from './logic.ts'
 
 test('pawns start on the first cell of their track', () => {
@@ -39,4 +39,15 @@ test('the pawn stops on the last cell and refuses to go further', () => {
   assert.equal(nearestTrackCell(state.campaignPawns.bottom.population.x), TRACK_LENGTH)
   assert.equal(advanceResourceTrack(state, 'bottom', 'population', 1).ok, false)
   assert.equal(advanceResourceTrack(state, 'bottom', 'money', 0).ok, false)
+})
+
+test('retreating moves the pawn back one cell at a time and stops on the first cell', () => {
+  const state = createInitialState()
+  advanceResourceTrack(state, 'bottom', 'logistics', 2)
+
+  assert.equal(retreatResourceTrack(state, 'bottom', 'logistics', 1).ok, true)
+  assert.equal(nearestTrackCell(state.campaignPawns.bottom.factory.x), 2)
+  assert.equal(retreatResourceTrack(state, 'bottom', 'logistics', 1).ok, true)
+  assert.equal(retreatResourceTrack(state, 'bottom', 'logistics', 1).ok, false)
+  assert.deepEqual(state.campaignPawns.bottom.factory, { x: TRACK_CELL_X[0], y: CAMPAIGN_PAWN_STARTS.factory.y })
 })

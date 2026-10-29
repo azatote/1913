@@ -406,14 +406,29 @@ kbd {
 }
 .resource-recap li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 3px 6px;
+  gap: 2px 6px;
+  padding: 3px 4px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
 }
+.resource-value { display: inline-flex; align-items: center; gap: 6px; }
+.resource-step {
+  min-width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  color: var(--ink);
+  background: transparent;
+  font: 600 16px/1 var(--sans);
+  cursor: pointer;
+}
+.resource-step:hover:not(:disabled) { color: var(--accent); background: var(--accent-soft); }
+.resource-step:disabled { opacity: 0.35; cursor: default; }
 .resource-recap img { flex: none; width: 20px; height: 20px; object-fit: contain; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5)); }
 .resource-recap strong { min-width: 1.4ch; font: 800 17px/1 var(--display); font-variant-numeric: tabular-nums; }
 .resource-money strong { color: #d99a00; }
@@ -853,6 +868,47 @@ button.objective-river-slot.is-selected { box-shadow: 0 0 0 2px var(--accent); }
 
 .pile.is-selected .pile-stack img { outline: 0.2cqw solid var(--accent); outline-offset: 0.08cqw; }
 .pile.is-dragging .pile-stack { --lift: 0 1.6cqw 2.4cqw -0.6cqw rgba(17, 24, 39, 0.5); }
+
+/* Radio tokens: sized from the board width like the cards, so they follow every zoom. */
+.radio-token {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--token-width);
+  height: var(--token-height);
+  transform-origin: 0 0;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+  transition: transform 0.1s linear;
+  filter: drop-shadow(0 0.15cqw 0.25cqw rgba(0, 0, 0, 0.55));
+}
+.radio-token.is-dragging { cursor: grabbing; transition: none; filter: drop-shadow(0 0.5cqw 0.7cqw rgba(0, 0, 0, 0.55)); }
+.radio-token.is-remote-drag { opacity: 0.85; }
+.radio-token img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.radio-token-count {
+  position: absolute;
+  right: -0.9cqw;
+  bottom: -0.7cqw;
+  min-width: 1.6cqw;
+  padding: 0.1cqw 0.45cqw;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--accent);
+  font: 700 clamp(8px, 0.65cqw, 14px)/1.2 var(--sans);
+  text-align: center;
+  pointer-events: none;
+}
+.radio-stack-home {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--token-width);
+  height: var(--token-height);
+  border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 0.5cqw;
+  pointer-events: none;
+}
 
 .pile-count {
   position: absolute;
