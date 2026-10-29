@@ -28,7 +28,8 @@ import {
   resetGame,
   shufflePile,
 } from '../game/logic'
-import { advanceResourceTrack } from '../game/campaignTracks'
+import { advanceResourceTrack, trackResourceAmount } from '../game/campaignTracks'
+import { RESOURCES, type ResourceId } from '../game/cardData'
 import { takeObjectiveToHand as takeObjective } from '../game/objectives'
 import type { ActionResult, CampaignPawnId, Card, GameState, PlayerId, Point } from '../game/types'
 import { useGame, type PresencePlayer } from '../game/useGame'
@@ -374,6 +375,10 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
     )
   }
 
+  const resourceAmounts = Object.fromEntries(
+    RESOURCES.map(({ id }) => [id, trackResourceAmount(state, viewerSeat, id)]),
+  ) as Record<ResourceId, number>
+
   const connection = status === 'online'
     ? pendingWrites > 0 ? { key: 'saving', label: 'Enregistrement…' } : { key: 'online', label: 'Synchronisé' }
     : status === 'connecting' ? { key: 'connecting', label: 'Connexion…' } : { key: 'offline', label: 'Hors ligne' }
@@ -508,6 +513,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
               drawPileId={state.objectiveDrawPileId}
               selectedPileId={selectedObjectivePileId}
               boardScale={boardScale}
+              resources={resourceAmounts}
               onSelect={selectObjectivePile}
             />
             <Board
