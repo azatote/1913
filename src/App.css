@@ -397,6 +397,30 @@ kbd {
   gap: 6px;
 }
 
+.resource-recap {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.resource-recap li {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+.resource-recap img { flex: none; width: 20px; height: 20px; object-fit: contain; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5)); }
+.resource-recap strong { min-width: 1.4ch; font: 800 17px/1 var(--display); font-variant-numeric: tabular-nums; }
+.resource-money strong { color: #d99a00; }
+.resource-population strong { color: #8b5cf6; }
+.resource-logistics strong { color: #2f7de1; }
+.resource-transport strong { color: #e0453a; }
+
 .objective-river-slot {
   position: relative;
   display: block;
