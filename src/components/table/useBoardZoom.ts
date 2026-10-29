@@ -105,7 +105,7 @@ export function useBoardZoom() {
   const stageHandlers = {
     onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => {
       if (event.pointerType === 'mouse' && event.button !== 0) return
-      if (event.target instanceof HTMLElement && event.target.closest('.pile')) return
+      if (event.target instanceof HTMLElement && event.target.closest('.pile, .radio-token')) return
       event.currentTarget.setPointerCapture(event.pointerId)
       pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
       if (pointersRef.current.size === 2) {

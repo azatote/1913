@@ -13,6 +13,9 @@ import {
   PLAYER_IDS,
   PLAYER_ROW_SLOTS,
   PLAYERS,
+  RADIO_STACK_HOME,
+  RADIO_TOKEN_HEIGHT,
+  RADIO_TOKEN_WIDTH,
   ROW_INDEX,
   ROW_Y,
   isPlayerRow,
@@ -22,12 +25,18 @@ import {
   playerRowSlotX,
   viewedRowIndex,
 } from '../../game/logic'
-import type { GameState, PlayerId, Point } from '../../game/types'
+import type { GameState, PlayerId, Point, RadioPlacement } from '../../game/types'
 import { isHandCardDrag, isObjectiveCardDrag, OBJECTIVE_HAND_MIME, readHandCardIndex, readObjectivePileId } from '../dnd'
-import { toCqw, toViewRect, unscaleViewPoint } from './boardGeometry'
+import { mirrorBox, toCqw, toViewRect, unscaleViewPoint } from './boardGeometry'
 import { PileView } from './PileView'
+import { isAtStack, stackedTokenView, tokenViewRect } from './radioGeometry'
+import { RadioTokenView } from './RadioTokenView'
 import { MAX_ZOOM, MIN_ZOOM, useBoardZoom } from './useBoardZoom'
 import { usePileDrag } from './usePileDrag'
+import { useRadioTokenDrag } from './useRadioTokenDrag'
+
+// Above every card, including the one being dragged.
+const TOKEN_Z_BASE = 100000
 
 type BoardProps = {
   state: GameState
@@ -43,6 +52,7 @@ type BoardProps = {
   onPileToHand: (pileId: string, playerId: PlayerId) => void
   onPlayFromHand: (index: number, position: Point) => void
   onPlayObjectiveFromHand: (cardId: string, position: Point) => void
+  onTokenDrop: (tokenId: string, placement: RadioPlacement) => void
   onBoardScaleChange: (scale: number) => void
   onDragMove: (pileId: string, position: Point) => void
   onDragEnd: (pileId: string) => void
@@ -71,6 +81,7 @@ export function Board({
   onPileToHand,
   onPlayFromHand,
   onPlayObjectiveFromHand,
+  onTokenDrop,
   onBoardScaleChange,
   onDragMove,
   onDragEnd,
@@ -88,6 +99,16 @@ export function Board({
     onPileDrop,
     onMovePlayerRow,
     onPileToHand,
+    onDragMove,
+    onDragEnd,
+  })
+  const { tokenDrag, handleTokenPointerDown, handleTokenPointerMove, handleTokenPointerEnd } = useRadioTokenDrag({
+    state,
+    mirrored,
+    remoteDrags,
+    pointerToView,
+    scrollNearEdge,
+    onTokenDrop,
     onDragMove,
     onDragEnd,
   })
@@ -123,9 +144,32 @@ export function Board({
     else if (index !== null) onPlayFromHand(index, position)
   }
 
+  const pileEntries = state.piles.map((pile) => {
+    const isDragging = dragPreview?.pileId === pile.id
+    const rowPlayer = PLAYER_IDS.find((id) => PLAYERS[id].rowIndex === nearestRowIndex(pile.y))
+    const groupShift = dragPreview && dragPreview.groupPlayerId === rowPlayer ? dragPreview.groupShift ?? 0 : 0
+    const model: Point = isDragging
+      ? dragPreview.position
+      : groupShift !== 0
+        ? { x: playerRowSlotX(playerRowSlotIndex(pile.x) + groupShift), y: pile.y }
+        : remoteDrags[pile.id] ?? pile
+    return { pile, isDragging, model }
+  })
+  // Tokens riding a card follow the position the card is displayed at, drags included.
+  const pileModels = new Map(pileEntries.map(({ pile, model }) => [pile.id, model]))
+  const radioTokens = state.radioTokens
+  const stacked = radioTokens
+    .filter((token) => isAtStack(token) && token.id !== tokenDrag?.tokenId && !(token.id in remoteDrags))
+    .sort((left, right) => left.z - right.z)
+  const stackOrder = new Map(stacked.map((token, index) => [token.id, index]))
+  const stackTop = stacked.length - 1
+  const stackHomeView = mirrorBox(RADIO_STACK_HOME, RADIO_TOKEN_WIDTH, RADIO_TOKEN_HEIGHT, mirrored)
+
   const boardStyle = {
     '--card-width': toCqw(CARD_WIDTH),
     '--card-height': toCqw(CARD_HEIGHT),
+    '--token-width': toCqw(RADIO_TOKEN_WIDTH),
+    '--token-height': toCqw(RADIO_TOKEN_HEIGHT),
     '--board-ratio': BOARD_WIDTH / BOARD_HEIGHT,
     '--zoom': zoom,
   } as CSSProperties
@@ -178,15 +222,7 @@ export function Board({
             )
           })}
 
-          {state.piles.map((pile) => {
-            const isDragging = dragPreview?.pileId === pile.id
-            const rowPlayer = PLAYER_IDS.find((id) => PLAYERS[id].rowIndex === nearestRowIndex(pile.y))
-            const groupShift = dragPreview && dragPreview.groupPlayerId === rowPlayer ? dragPreview.groupShift ?? 0 : 0
-            const model = isDragging
-              ? dragPreview.position
-              : groupShift !== 0
-                ? { x: playerRowSlotX(playerRowSlotIndex(pile.x) + groupShift), y: pile.y }
-                : remoteDrags[pile.id] ?? pile
+          {pileEntries.map(({ pile, isDragging, model }) => {
             const view = toViewRect(model, mirrored)
             return (
               <PileView
@@ -204,6 +240,37 @@ export function Board({
                 onPointerDown={handlePilePointerDown}
                 onPointerMove={handlePilePointerMove}
                 onPointerEnd={handlePilePointerEnd}
+              />
+            )
+          })}
+
+          <div
+            className="radio-stack-home"
+            style={{
+              transform: `translate(${toCqw(stackHomeView.x)}, ${toCqw(stackHomeView.y)})`,
+            }}
+          />
+          {radioTokens.map((token) => {
+            const isDragging = tokenDrag?.tokenId === token.id
+            const stackIndex = stackOrder.get(token.id)
+            const hostModel = token.attachedTo ? pileModels.get(token.attachedTo.pileId) : undefined
+            let view = tokenViewRect(token, hostModel, remoteDrags[token.id], mirrored)
+            if (stackIndex !== undefined && !remoteDrags[token.id]) view = stackedTokenView(view, stackIndex)
+            if (isDragging) view = { ...view, ...tokenDrag.view, scale: 1 }
+            return (
+              <RadioTokenView
+                key={token.id}
+                tokenId={token.id}
+                viewX={view.x}
+                viewY={view.y}
+                scale={view.scale}
+                zIndex={(isDragging ? TOKEN_Z_BASE : 0) + TOKEN_Z_BASE + token.z}
+                dragging={isDragging}
+                remote={!isDragging && token.id in remoteDrags}
+                stackCount={stackIndex === stackTop ? stackOrder.size : 0}
+                onPointerDown={handleTokenPointerDown}
+                onPointerMove={handleTokenPointerMove}
+                onPointerEnd={handleTokenPointerEnd}
               />
             )
           })}

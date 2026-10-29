@@ -1,4 +1,5 @@
 import {
+  BOARD_HEIGHT,
   BOARD_WIDTH,
   CARD_HEIGHT,
   OWN_ROW_SCALE,
@@ -18,6 +19,11 @@ export function toCqw(value: number) {
 
 export function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(value, max))
+}
+
+// Top-left corner of a width x height box seen from the other side of the table.
+export function mirrorBox(point: Point, width: number, height: number, mirrored: boolean): Point {
+  return mirrored ? { x: BOARD_WIDTH - width - point.x, y: BOARD_HEIGHT - height - point.y } : { x: point.x, y: point.y }
 }
 
 const OWN_ROW_BOTTOM = ROW_Y[PLAYERS.bottom.rowIndex] + CARD_HEIGHT

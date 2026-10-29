@@ -1,4 +1,4 @@
-import type { ActionResult, CampaignPawnId, Card, GameState, ObjectivePile, Pile, PlayerId, Point } from './types'
+import type { ActionResult, CampaignPawnId, Card, GameState, ObjectivePile, Pile, PlayerId, Point, RadioToken } from './types'
 
 // Model coordinates, shared by every client whatever its screen size.
 export const BOARD_WIDTH = 2200
@@ -51,6 +51,46 @@ export const PLAYERS: Record<PlayerId, { label: string; rowIndex: number }> = {
 }
 
 export const PLAYER_IDS: PlayerId[] = ['bottom', 'top']
+
+export const RADIO_TOKEN_COUNT = 10
+// A token is a fifth of a card high; its width keeps the ratio of radios.png (168 x 235).
+export const RADIO_TOKEN_HEIGHT = CARD_HEIGHT / 5
+export const RADIO_TOKEN_WIDTH = (RADIO_TOKEN_HEIGHT * 168) / 235
+export const RADIO_STACK_HOME: Point = { x: 220, y: Math.round(ROW_Y[ROW_INDEX.center] + (CARD_HEIGHT - RADIO_TOKEN_HEIGHT) / 2) }
+
+function createRadioTokens(seed?: string): RadioToken[] {
+  return Array.from({ length: RADIO_TOKEN_COUNT }, (_, index) => ({
+    id: seed ? `${seed}-radio-${index + 1}` : createId(),
+    x: RADIO_STACK_HOME.x,
+    y: RADIO_STACK_HOME.y,
+    z: index + 1,
+    attachedTo: null,
+  }))
+}
+
+function finiteOr(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function normalizeRadioTokens(raw: unknown, piles: Pile[], seed: string): RadioToken[] {
+  if (!Array.isArray(raw)) return createRadioTokens(seed || undefined)
+  const pileIds = new Set(piles.map((pile) => pile.id))
+  return raw
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object' && typeof (entry as { id?: unknown }).id === 'string')
+    .map((entry) => {
+      const attached = entry.attachedTo as { pileId?: unknown; dx?: unknown; dy?: unknown } | null | undefined
+      const attachedTo = attached && typeof attached.pileId === 'string' && pileIds.has(attached.pileId)
+        ? { pileId: attached.pileId, dx: finiteOr(attached.dx, 0), dy: finiteOr(attached.dy, 0) }
+        : null
+      return {
+        id: entry.id as string,
+        x: finiteOr(entry.x, RADIO_STACK_HOME.x),
+        y: finiteOr(entry.y, RADIO_STACK_HOME.y),
+        z: finiteOr(entry.z, 0),
+        attachedTo,
+      }
+    })
+}
 
 export const CAMPAIGN_PAWN_IDS: CampaignPawnId[] = ['money', 'population', 'industry', 'factory', 'france', 'unitedKingdom', 'russia']
 export const CAMPAIGN_PAWN_STARTS: Record<CampaignPawnId, Point> = {
@@ -217,7 +257,8 @@ export function createInitialState(): GameState {
     hands,
     objectiveHands: { top: [], bottom: [] },
     campaignPawns: createCampaignPawnPositions(),
-    topZ: slotCount,
+    radioTokens: createRadioTokens(),
+    topZ: Math.max(slotCount, RADIO_TOKEN_COUNT),
     drawPileId: drawPile.id,
     boardLayoutVersion: BOARD_LAYOUT_VERSION,
     ...objectiveRiver,
@@ -266,6 +307,7 @@ export function parseGameState(raw: unknown, legacySeed = ''): GameState | null 
   const storedObjectiveHands = value.objectiveHands
   const legacyTopObjectives = value.hands.top.filter((card) => card.kind === 'objective')
   const legacyBottomObjectives = value.hands.bottom.filter((card) => card.kind === 'objective')
+  const radioTokens = normalizeRadioTokens(value.radioTokens, piles, legacySeed)
 
   return {
     piles,
@@ -278,8 +320,9 @@ export function parseGameState(raw: unknown, legacySeed = ''): GameState | null 
       bottom: [...(Array.isArray(storedObjectiveHands?.bottom) ? storedObjectiveHands.bottom : []), ...legacyBottomObjectives],
     },
     campaignPawns: normalizeCampaignPawnPositions(value.campaignPawns),
+    radioTokens,
     boardLayoutVersion: BOARD_LAYOUT_VERSION,
-    topZ: typeof value.topZ === 'number' ? value.topZ : 1,
+    topZ: Math.max(typeof value.topZ === 'number' ? value.topZ : 1, ...radioTokens.map((token) => token.z)),
     drawPileId: drawPile?.id ?? legacyDrawPile?.id ?? null,
     objectivePiles,
     objectiveDrawPileId,
@@ -375,7 +418,17 @@ function bringToFront(state: GameState, pile: Pile) {
 }
 
 function removePile(state: GameState, pileId: string) {
-  state.piles = state.piles.filter((pile) => pile.id !== pileId)
+  const pile = state.piles.find((entry) => entry.id === pileId)
+  if (pile) {
+    // Radio tokens stay on the table where the card was.
+    for (const token of state.radioTokens) {
+      if (token.attachedTo?.pileId !== pileId) continue
+      token.x = pile.x + token.attachedTo.dx
+      token.y = pile.y + token.attachedTo.dy
+      token.attachedTo = null
+    }
+  }
+  state.piles = state.piles.filter((entry) => entry.id !== pileId)
   if (state.drawPileId === pileId) state.drawPileId = null
 }
 

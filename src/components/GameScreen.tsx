@@ -31,6 +31,7 @@ import {
 import { advanceResourceTrack, retreatResourceTrack, trackResourceAmount } from '../game/campaignTracks'
 import { RESOURCES, type ResourceId } from '../game/cardData'
 import { takeObjectiveToHand as takeObjective } from '../game/objectives'
+import { placeRadioToken } from '../game/radios'
 import type { ActionResult, CampaignPawnId, Card, GameState, PlayerId, Point } from '../game/types'
 import { useGame, type PresencePlayer } from '../game/useGame'
 import { errorMessage } from '../lib/errors'
@@ -535,6 +536,7 @@ export function GameScreen({ gameId, themeToggle, onLeave }: GameScreenProps) {
               onPileToHand={(pileId, playerId) => run((draft) => movePileToHand(draft, pileId, playerId))}
               onPlayFromHand={playCard}
               onPlayObjectiveFromHand={playObjectiveCard}
+              onTokenDrop={(tokenId, placement) => run((draft) => placeRadioToken(draft, tokenId, placement))}
               onBoardScaleChange={setBoardScale}
               onDragMove={broadcastDrag}
               onDragEnd={broadcastDragEnd}
